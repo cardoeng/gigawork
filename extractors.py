@@ -160,8 +160,12 @@ class FilesExtractor(Extractor):
             raise ValueError("Blob cannot be None")
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
-        with open(os.path.join(self.save_directory, _hash + ".yaml"), "wb") as file:
-            file.write(data)
+        path = os.path.join(self.save_directory, _hash + ".yaml")
+        if not os.path.exists(path):
+            # if it exists, we already have the workflow
+            # (well, we might have a collision, but it is unlikely)
+            with open(path, "wb") as file:
+                file.write(data)
         entry = Entry(
             commit.hexsha,
             commit.author.name,

@@ -7,7 +7,7 @@ from extractors import WorkflowsExtractor
 from repository import clone_repository, read_repository, update_repository
 import utils
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
