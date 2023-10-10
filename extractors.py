@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import namedtuple
 import hashlib
 from os import PathLike
 import os
@@ -22,10 +23,7 @@ class Entry(NamedTuple):
     change_type: str
 
 
-class RepositoryEntry(Entry):
-    """A single entry in the dataset with the repository name."""
-
-    repository: str
+RepositoryEntry = namedtuple("RepositoryEntry", ("repository",) + Entry._fields)
 
 
 class Extractor(ABC):
@@ -48,7 +46,7 @@ class WorkflowExtractor(Extractor):
     def extract(self, ref="HEAD", after=None) -> List[Entry]:
         entries = []
         if after is not None:
-            ref = f"{ref}..{after}"
+            ref = f"{after}..{ref}"
         # iter parents until `after` if given
         for commit in self.repository.iter_commits(
             ref, self.WORKFLOWS_DIRECTORY, **{"first-parent": True}
@@ -75,8 +73,6 @@ class WorkflowExtractor(Extractor):
         # if a file was added or deleted (it might be reversed if we are not cautious)
         # If there is no parent, we check for diff since the beginning
         # of the repository (we are at a initial commit)
-        if len(commit.parents) > 1:
-            print(commit)
         # we only compare with the first parent
         # as we iter_commits with first-parent=True
         parent = commit.parents[0] if len(commit.parents) > 0 else None

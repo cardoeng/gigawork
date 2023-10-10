@@ -1,9 +1,11 @@
+from pathlib import Path
 from typing import Union
 import git
 import logging
 import os
 
 logger = logging.getLogger(__name__)
+
 
 def read_repository(path: str) -> Union[git.Repo, None]:
     """Read a repository at the given path.
@@ -19,25 +21,35 @@ def read_repository(path: str) -> Union[git.Repo, None]:
         return git.Repo(path)
     else:
         return None
-        
+
+
 def clone_repository(url: str, d: os.PathLike = None) -> Union[git.Repo, None]:
     """Clone a repository at the given url in the given directory.
 
     Args:
         url (str): The url of the repository.
-        d (os.PathLike, optional): The directory in which the repository should be clones. 
+        d (os.PathLike, optional): The directory in which the repository should be clones.
+        If None, a directory will be created with the base name of the given url.
         Defaults to None.
 
     Returns:
         git.Repo: The repository if it was cloned successfully, None otherwise.
     """
     logger.debug(f"Cloning repository at '{url}'")
+    if d is None:
+        d = os.path.basename(url)
+        os.makedirs(d, exist_ok=True)
+    if os.path.exists(d) and any(Path(d).iterdir()):
+        logger.error(f"Directory '{d}' is not empty.")
+        return None
+
     try:
         r = git.Repo.clone_from(url, d, **{"no-checkout": True})
     except git.exc.GitCommandError:
         logger.error(f"Could not clone repository at '{url}'")
         return None
     return r
+
 
 def update_repository(r: git.Repo):
     """Update the given repository.
@@ -53,4 +65,3 @@ def update_repository(r: git.Repo):
     #     logger.error("No remote named 'origin' found for the repository at '{r.working_dir}'")
     #     return None
     # origin.fetch()
-    

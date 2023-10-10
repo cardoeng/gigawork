@@ -3,3 +3,4 @@ workflows/*
 __pycache__/*
 *.csv
 .vscode/*
+test.py
