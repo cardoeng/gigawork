@@ -71,25 +71,25 @@ def workflows(
 ):
     """Extract the workflows from the given repository."""
     tmp_directory = None  # the temporary directory if one is created
-    repository = None  # the repository
+    repo = None  # the repository
 
     # clone the repository if it does not exist
     if not os.path.exists(repository):
         if not save_repository:
             tmp_directory = tempfile.TemporaryDirectory(dir=".")
             save_repository = tmp_directory.name
-        repository = clone_repository(repository, save_repository)
+        repo = clone_repository(repository, save_repository)
     else:
-        repository = read_repository(repository)
-    if not repository:
+        repo = read_repository(repository)
+    if not repo:
         logger.error("Could not read repository at %s", repository)
         sys.exit(1)
 
     # update it if requested
     if update:
-        update_repository(repository)
+        update_repository(repo)
 
-    extractor = WorkflowsExtractor(repository, workflows)
+    extractor = WorkflowsExtractor(repo, workflows)
     entries = extractor.extract(ref, after)
 
     if output:
