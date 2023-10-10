@@ -5,12 +5,15 @@ Module for every extractors defined in the project.
 from abc import ABC, abstractmethod
 from collections import namedtuple
 import hashlib
+import logging
 from os import PathLike
 import os
 from typing import List, NamedTuple
 import git
 
 from change_types import ChangeTypes
+
+logger = logging.getLogger(__name__)
 
 
 class Entry(NamedTuple):
@@ -93,32 +96,50 @@ class FilesExtractor(Extractor):
                 self.directory
             ) and not diff.b_path.startswith(self.directory):
                 continue
+            try:
+                self._process_diff(diff, entries, commit, parent)
+            except ValueError:
+                logger.error("Could not process diff %s (commit=%s)", str(diff), commit)
 
-            change_type = ChangeTypes(diff.change_type)
-            if change_type in [ChangeTypes.MODIFIED, ChangeTypes.ADDED]:
-                entries.append(
-                    self._process_blob(diff.b_blob, commit, diff.b_path, change_type)
+    def _process_diff(
+        self,
+        diff: git.Diff,
+        entries: List[Entry],
+        commit: git.Commit,
+        parent: git.Commit = None,
+    ):
+        """Process a diff to extract the files and data.
+
+        Args:
+            diff (git.Diff): The diff to process.
+            entries (List[Entry]): The list of entries to add to / the results.
+            commit (git.Commit): The commit to which the diff belongs.
+            parent (git.Commit, optional): The parent of the commit (if None, will try
+            to get it automatically). Defaults to None.
+        """
+        if parent is None:
+            parent = commit.parents[0] if len(commit.parents) > 0 else None
+        change_type = ChangeTypes(diff.change_type)
+        if change_type in [ChangeTypes.MODIFIED, ChangeTypes.ADDED]:
+            entries.append(
+                self._process_blob(diff.b_blob, commit, diff.b_path, change_type)
+            )
+        elif change_type == ChangeTypes.DELETED:
+            if parent is None:
+                change_type = ChangeTypes.ADDED  # if there is no parent, it was added
+                # as we are at the initial commit (we can only add at an initial commit)
+            entries.append(
+                self._process_blob(diff.a_blob, commit, diff.a_path, change_type)
+            )
+        elif change_type == ChangeTypes.RENAMED:
+            entries.append(
+                self._process_blob(
+                    diff.a_blob, commit, diff.a_path, ChangeTypes.DELETED
                 )
-            elif change_type == ChangeTypes.DELETED:
-                if parent is None:
-                    change_type = (
-                        ChangeTypes.ADDED
-                    )  # if there is no parent, it was added
-                    # as we are at the initial commit (we can only add at an initial commit)
-                entries.append(
-                    self._process_blob(diff.a_blob, commit, diff.a_path, change_type)
-                )
-            elif change_type == ChangeTypes.RENAMED:
-                entries.append(
-                    self._process_blob(
-                        diff.a_blob, commit, diff.a_path, ChangeTypes.DELETED
-                    )
-                )
-                entries.append(
-                    self._process_blob(
-                        diff.b_blob, commit, diff.b_path, ChangeTypes.ADDED
-                    )
-                )
+            )
+            entries.append(
+                self._process_blob(diff.b_blob, commit, diff.b_path, ChangeTypes.ADDED)
+            )
 
     def _process_blob(
         self,
@@ -136,7 +157,7 @@ class FilesExtractor(Extractor):
             str: The hash of the workflow content. (Its name in the save_directory)
         """
         if blob is None:
-            return None
+            raise ValueError("Blob cannot be None")
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
         with open(os.path.join(self.save_directory, _hash + ".yaml"), "wb") as file:
