@@ -6,7 +6,7 @@ import logging
 import tempfile
 import utils
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @click.command()
@@ -56,8 +56,8 @@ def main(ref, save_repository, update, after, workflows, output, repository_name
     if update:
         update_repository(r)
         
-    extractor = WorkflowExtractor(r)
-    entries = extractor.extract(workflows, ref, after)
+    extractor = WorkflowExtractor(r, workflows)
+    entries = extractor.extract(ref, after)
     utils.write_csv(entries, output, headers)
     
     

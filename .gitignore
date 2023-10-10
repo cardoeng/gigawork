@@ -2,3 +2,4 @@ venv/*
 workflows/*
 __pycache__/*
 *.csv
+.vscode/*

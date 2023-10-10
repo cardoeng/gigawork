@@ -5,3 +5,4 @@ class ChangeTypes(Enum):
     ADDED = 'A'
     MODIFIED = 'M'
     DELETED = 'D'
+    RENAMED = 'R'
