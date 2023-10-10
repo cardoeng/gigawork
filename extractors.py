@@ -1,3 +1,7 @@
+"""
+Module for every extractors defined in the project.
+"""
+
 from abc import ABC, abstractmethod
 from collections import namedtuple
 import hashlib
@@ -27,36 +31,43 @@ RepositoryEntry = namedtuple("RepositoryEntry", ("repository",) + Entry._fields)
 
 
 class Extractor(ABC):
+    """An extractor is used to extract information from a repository."""
+
     def __init__(self, repository: git.Repo) -> None:
         self.repository = repository
 
     @abstractmethod
     def extract(self, *args, **kwargs) -> List[Entry]:
-        pass
+        """Extract the information from the repository.
+
+        Returns:
+            List[Entry]: The list of entries extracted from the repository.
+        """
 
 
-class WorkflowExtractor(Extractor):
-    WORKFLOWS_DIRECTORY = ".github/workflows"
+class FilesExtractor(Extractor):
+    """Extract files and Entry from a repository."""
 
-    def __init__(self, repository: git.Repo, save_directory: PathLike) -> None:
+    def __init__(
+        self, repository: git.Repo, directory: PathLike, save_directory: PathLike
+    ) -> None:
         super().__init__(repository)
         self.save_directory = save_directory
+        self.directory = directory
         os.makedirs(self.save_directory, exist_ok=True)
 
-    def extract(self, ref="HEAD", after=None) -> List[Entry]:
+    def extract(self, ref="HEAD", after=None, *args, **kwargs) -> List[Entry]:
         entries = []
         if after is not None:
             ref = f"{after}..{ref}"
         # iter parents until `after` if given
         for commit in self.repository.iter_commits(
-            ref, self.WORKFLOWS_DIRECTORY, **{"first-parent": True}
+            ref, self.directory, **{"first-parent": True}
         ):
-            self._extract_files(commit, self.WORKFLOWS_DIRECTORY, entries)
+            self._extract_files(commit, entries)
         return entries
 
-    def _extract_files(
-        self, commit: git.Commit, directory: PathLike, entries: List[Entry]
-    ):
+    def _extract_files(self, commit: git.Commit, entries: List[Entry]):
         """Extract the workflows from the given commit.
 
         Args:
@@ -78,20 +89,26 @@ class WorkflowExtractor(Extractor):
         parent = commit.parents[0] if len(commit.parents) > 0 else None
         diffs = parent.diff(commit) if parent else commit.diff(None)
         for diff in diffs:
-            if not diff.a_path.startswith(directory) and not diff.b_path.startswith(
-                directory
-            ):
+            if not diff.a_path.startswith(
+                self.directory
+            ) and not diff.b_path.startswith(self.directory):
                 continue
 
-            ct = ChangeTypes(diff.change_type)
-            if ct in [ChangeTypes.MODIFIED, ChangeTypes.ADDED]:
-                entries.append(self._process_blob(diff.b_blob, commit, diff.b_path, ct))
-            elif ct == ChangeTypes.DELETED:
+            change_type = ChangeTypes(diff.change_type)
+            if change_type in [ChangeTypes.MODIFIED, ChangeTypes.ADDED]:
+                entries.append(
+                    self._process_blob(diff.b_blob, commit, diff.b_path, change_type)
+                )
+            elif change_type == ChangeTypes.DELETED:
                 if parent is None:
-                    ct = ChangeTypes.ADDED  # if there is no parent, it was added
+                    change_type = (
+                        ChangeTypes.ADDED
+                    )  # if there is no parent, it was added
                     # as we are at the initial commit (we can only add at an initial commit)
-                entries.append(self._process_blob(diff.a_blob, commit, diff.a_path, ct))
-            elif ct == ChangeTypes.RENAMED:
+                entries.append(
+                    self._process_blob(diff.a_blob, commit, diff.a_path, change_type)
+                )
+            elif change_type == ChangeTypes.RENAMED:
                 entries.append(
                     self._process_blob(
                         diff.a_blob, commit, diff.a_path, ChangeTypes.DELETED
@@ -120,10 +137,10 @@ class WorkflowExtractor(Extractor):
         """
         if blob is None:
             return None
-        file = blob.data_stream.read()
-        h = hashlib.sha256(file).hexdigest()
-        with open(os.path.join(self.save_directory, h + ".yaml"), "wb") as f:
-            f.write(file)
+        data = blob.data_stream.read()
+        _hash = hashlib.sha256(data).hexdigest()
+        with open(os.path.join(self.save_directory, _hash + ".yaml"), "wb") as file:
+            file.write(data)
         entry = Entry(
             commit.hexsha,
             commit.author.name,
@@ -132,13 +149,18 @@ class WorkflowExtractor(Extractor):
             commit.committer.email,
             commit.committed_date,
             path,
-            h,
+            _hash,
             change_type.value,
         )
         return entry
 
 
-if __name__ == "__main__":
-    r = git.Repo("./calculator-cucumber")
-    extractor = WorkflowExtractor(r, "workflows")
-    extractor.extract()
+class WorkflowsExtractor(FilesExtractor):
+    """Extract workflows and related Entry from a repository."""
+
+    WORKFLOWS_DIRECTORY = ".github/workflows"
+
+    def __init__(self, repository: git.Repo, save_directory: PathLike) -> None:
+        FilesExtractor.__init__(
+            self, repository, self.WORKFLOWS_DIRECTORY, save_directory
+        )

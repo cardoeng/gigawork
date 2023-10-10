@@ -1,17 +1,22 @@
 import os
 import sys
-import click
-from extractors import WorkflowExtractor
-from repository import clone_repository, read_repository, update_repository
 import logging
 import tempfile
+import click
+from extractors import WorkflowsExtractor
+from repository import clone_repository, read_repository, update_repository
 import utils
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@click.command()
+@click.group()
+def main():
+    pass
+
+
+@main.command()
 @click.option(
     "--ref", "-r", default="HEAD", help="The reference to start from.", type=str
 )
@@ -53,7 +58,7 @@ logger = logging.getLogger(__name__)
     is_flag=True,
 )
 @click.argument("repository", type=str)
-def main(
+def workflows(
     ref,
     save_repository,
     update,
@@ -64,31 +69,32 @@ def main(
     headers,
     repository,
 ):
+    """Extract the workflows from the given repository."""
     tmp_directory = None  # the temporary directory if one is created
-    r = None  # the repository
+    repository = None  # the repository
 
     # clone the repository if it does not exist
     if not os.path.exists(repository):
         if not save_repository:
             tmp_directory = tempfile.TemporaryDirectory(dir=".")
             save_repository = tmp_directory.name
-        r = clone_repository(repository, save_repository)
+        repository = clone_repository(repository, save_repository)
     else:
-        r = read_repository(repository)
-    if not r:
-        logger.error(f"Could not read repository at '{repository}'")
+        repository = read_repository(repository)
+    if not repository:
+        logger.error("Could not read repository at %s", repository)
         sys.exit(1)
 
     # update it if requested
     if update:
-        update_repository(r)
+        update_repository(repository)
 
-    extractor = WorkflowExtractor(r, workflows)
+    extractor = WorkflowsExtractor(repository, workflows)
     entries = extractor.extract(ref, after)
 
     if output:
-        with open(output, "w") as f:
-            utils.write_csv(entries, f, headers, repository_name)
+        with open(output, "w", encoding="utf-8") as file:
+            utils.write_csv(entries, file, headers, repository_name)
     else:
         utils.write_csv(entries, sys.stdout, headers, repository_name)
 
