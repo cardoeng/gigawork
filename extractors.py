@@ -145,8 +145,11 @@ class FilesExtractor(Extractor):
         """
         if parent is None:
             parent = commit.parents[0] if len(commit.parents) > 0 else None
-        change_type = ChangeTypes(diff.change_type)
-        # FIXME: if change type is not supported
+        try:
+            change_type = ChangeTypes(diff.change_type)
+        except ValueError:
+            logger.debug("Could not process diff %s (commit=%s)", str(diff), commit)
+            return  # we do not care about this diff
 
         for params in self._get_blob_parameters(diff, change_type, commit):
             entries.append(self._process_blob(*params))
