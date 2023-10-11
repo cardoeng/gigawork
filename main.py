@@ -3,6 +3,7 @@ import sys
 import logging
 import tempfile
 import click
+import git
 from extractors import WorkflowsExtractor
 from repository import clone_repository, read_repository, update_repository
 import utils
@@ -74,20 +75,29 @@ def workflows(
     repo = None  # the repository
 
     # clone the repository if it does not exist
-    if not os.path.exists(repository):
-        if not save_repository:
-            tmp_directory = tempfile.TemporaryDirectory(dir=".")
-            save_repository = tmp_directory.name
-        repo = clone_repository(repository, save_repository)
-    else:
-        repo = read_repository(repository)
-    if not repo:
-        logger.error("Could not read repository at %s", repository)
+    try:
+        if not os.path.exists(repository):
+            if not save_repository:
+                tmp_directory = tempfile.TemporaryDirectory(dir=".")
+                save_repository = tmp_directory.name
+            repo = clone_repository(repository, save_repository)
+        else:
+            repo = read_repository(repository)
+    except (git.exc.GitCommandError, ValueError) as e:
+        logger.error("Could not read repository at '%s'", repository)
+        logger.debug(e)
         sys.exit(1)
 
     # update it if requested
     if update:
-        update_repository(repo)
+        try:
+            update_repository(repo)
+        except git.exc.GitCommandError as e:
+            logger.error(
+                "Could not update repository at '%s'. Keeping the current version...",
+                repository,
+            )
+            logger.debug(e)
 
     extractor = WorkflowsExtractor(repo, workflows)
     entries = extractor.extract(ref, after)

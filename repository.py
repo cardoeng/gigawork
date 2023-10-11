@@ -35,19 +35,19 @@ def clone_repository(url: str, d: os.PathLike = None) -> Union[git.Repo, None]:
     Returns:
         git.Repo: The repository if it was cloned successfully, None otherwise.
     """
-    logger.debug(f"Cloning repository at '{url}'")
+    logger.debug("Cloning repository at '%s'", url)
     if d is None:
         d = os.path.basename(url)
         os.makedirs(d, exist_ok=True)
     if os.path.exists(d) and any(Path(d).iterdir()):
-        logger.error(f"Directory '{d}' is not empty.")
-        return None
+        logger.error("Directory '%s' is not empty. Stopping...", d)
+        raise ValueError(f"Directory '{d}' is not empty.")
 
     try:
         r = git.Repo.clone_from(url, d, **{"no-checkout": True})
     except git.exc.GitCommandError:
-        logger.error(f"Could not clone repository at '{url}'")
-        return None
+        logger.error("Could not clone repository at '%s'", url)
+        raise
     return r
 
 

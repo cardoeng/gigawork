@@ -95,11 +95,37 @@ class FilesExtractor(Extractor):
             if not diff.a_path.startswith(
                 self.directory
             ) and not diff.b_path.startswith(self.directory):
-                continue
+                continue  # a commit might contains diffs for files we do not care about
             try:
                 self._process_diff(diff, entries, commit, parent)
             except ValueError:
                 logger.error("Could not process diff %s (commit=%s)", str(diff), commit)
+
+    def _get_blob_parameters(
+        self, diff: git.Diff, change_type: ChangeTypes, commit
+    ) -> List[tuple]:
+        """Returns the parameters to process a blob.
+
+        Args:
+            diff (git.Diff): The diff to process.
+            change_type (ChangeTypes): The type of change.
+            commit (_type_): The commit to which the diff belongs.
+
+        Returns:
+            List[tuple]: The parameters to process a blob.
+        """
+        if change_type == ChangeTypes.RENAMED:
+            return (
+                *self._get_blob_parameters(diff, ChangeTypes.DELETED, commit),
+                *self._get_blob_parameters(diff, ChangeTypes.ADDED, commit),
+            )
+        if change_type == ChangeTypes.DELETED:
+            blob, path = diff.a_blob, diff.a_path
+        else:
+            blob, path = diff.b_blob, diff.b_path
+        if len(commit.parents) == 0:
+            change_type = ChangeTypes.ADDED
+        return ((blob, commit, path, change_type),)
 
     def _process_diff(
         self,
@@ -120,32 +146,16 @@ class FilesExtractor(Extractor):
         if parent is None:
             parent = commit.parents[0] if len(commit.parents) > 0 else None
         change_type = ChangeTypes(diff.change_type)
-        if change_type in [ChangeTypes.MODIFIED, ChangeTypes.ADDED]:
-            entries.append(
-                self._process_blob(diff.b_blob, commit, diff.b_path, change_type)
-            )
-        elif change_type == ChangeTypes.DELETED:
-            if parent is None:
-                change_type = ChangeTypes.ADDED  # if there is no parent, it was added
-                # as we are at the initial commit (we can only add at an initial commit)
-            entries.append(
-                self._process_blob(diff.a_blob, commit, diff.a_path, change_type)
-            )
-        elif change_type == ChangeTypes.RENAMED:
-            entries.append(
-                self._process_blob(
-                    diff.a_blob, commit, diff.a_path, ChangeTypes.DELETED
-                )
-            )
-            entries.append(
-                self._process_blob(diff.b_blob, commit, diff.b_path, ChangeTypes.ADDED)
-            )
+        # FIXME: if change type is not supported
+
+        for params in self._get_blob_parameters(diff, change_type, commit):
+            entries.append(self._process_blob(*params))
 
     def _process_blob(
         self,
         blob: git.Blob,
         commit: git.Commit,
-        path: PathLike,
+        workflow_path: PathLike,
         change_type: ChangeTypes,
     ) -> Entry:
         """Process a blob to extract the workflow content.
@@ -173,7 +183,7 @@ class FilesExtractor(Extractor):
             commit.committer.name,
             commit.committer.email,
             commit.committed_date,
-            path,
+            workflow_path,
             _hash,
             change_type.value,
         )
