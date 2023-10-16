@@ -4,9 +4,9 @@ import logging
 import tempfile
 import click
 import git
-from extractors import WorkflowsExtractor
-from repository import clone_repository, read_repository, update_repository
-import utils
+from .extractors import WorkflowsExtractor
+from .repository import clone_repository, read_repository, update_repository
+from . import utils
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -19,7 +19,12 @@ def main():
 
 @main.command()
 @click.option(
-    "--ref", "-r", default="HEAD", help="The reference to start from.", type=str
+    "--ref",
+    "--branch",
+    "-r",
+    default="HEAD",
+    help="The reference to start from.",
+    type=str,
 )
 @click.option(
     "--save-repository", "-s", help="Save the repository to the given path.", type=str
@@ -103,7 +108,7 @@ def workflows(
     entries = extractor.extract(ref, after)
 
     if output:
-        with open(output, "w", encoding="utf-8") as file:
+        with open(output, "a", encoding="utf-8") as file:
             utils.write_csv(entries, file, headers, repository_name)
     else:
         utils.write_csv(entries, sys.stdout, headers, repository_name)

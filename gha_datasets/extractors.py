@@ -11,7 +11,7 @@ import os
 from typing import List, NamedTuple
 import git
 
-from change_types import ChangeTypes
+from .change_types import ChangeTypes
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 venv/*
 workflows/*
-__pycache__/*
+*__pycache__/*
 *.csv
 .vscode/*
 test.py

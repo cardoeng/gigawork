@@ -1,7 +1,7 @@
 import csv
 from io import TextIOWrapper
 from typing import Iterable, List
-from extractors import Entry, RepositoryEntry
+from .extractors import Entry, RepositoryEntry
 
 
 def write_csv(
