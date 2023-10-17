@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 @click.group()
 def main():
+    """A tool for extracting GitHub Actions workflows."""
     pass
 
 
@@ -71,7 +72,7 @@ def main():
     "repository",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
 )
-def workflows(
+def gha_workflows(
     ref,
     save_repository,
     update,
@@ -95,21 +96,21 @@ def workflows(
             repo = clone_repository(repository, save_repository)
         else:
             repo = read_repository(repository)
-    except (git.exc.GitCommandError, ValueError) as e:
+    except (git.exc.GitCommandError, ValueError) as exception:
         logger.error("Could not read repository at '%s'", repository)
-        logger.debug(e)
+        logger.debug(exception)
         sys.exit(1)
 
     # update it if requested
-    if update:
+    if update == True:
         try:
             update_repository(repo)
-        except git.exc.GitCommandError as e:
+        except git.exc.GitCommandError as exception:
             logger.error(
                 "Could not update repository at '%s'. Keeping the current version...",
                 repository,
             )
-            logger.debug(e)
+            logger.debug(exception)
 
     extractor = WorkflowsExtractor(repo, workflows)
     entries = extractor.extract(ref, after)
@@ -152,9 +153,9 @@ def workflows(
 @click.argument("options", nargs=-1, type=click.UNPROCESSED)
 def batch_workflows(directory, error_directory, output_directory, options):
     """Execute the workflows command on multiple repositories."""
-    for d in (error_directory, output_directory):
-        if d is not None:
-            os.makedirs(d, exist_ok=True)
+    for folder in (error_directory, output_directory):
+        if folder is not None:
+            os.makedirs(folder, exist_ok=True)
     to_process = os.listdir(directory)
     to_process = [os.path.join(directory, f) for f in to_process]
     # there might be memory leaks here and there
@@ -180,7 +181,7 @@ def batch_workflows(directory, error_directory, output_directory, options):
         )
         args = (*default_args, *options, repo)
         p = subprocess.Popen(
-            ["gha-datasets", "workflows", *args],
+            ["gha-datasets", "gha-workflows", *args],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
