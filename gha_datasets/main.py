@@ -178,6 +178,8 @@ def batch_workflows(directory, error_directory, output_directory, options):
         default_args = (
             "--output",
             os.path.join(output_directory, os.path.basename(repo) + ".csv"),
+            "--repository-name",
+            os.path.basename(repo),
         )
         args = (*default_args, *options, repo)
         p = subprocess.Popen(
