@@ -25,13 +25,13 @@ def main():
     "--branch",
     "-r",
     default="HEAD",
-    help="The reference to start from.",
+    help="The commit reference (i.e., commit SHA or TAG) to start from.",
     type=str,
 )
 @click.option(
     "--save-repository",
     "-s",
-    help="Save the repository to the given path.",
+    help="Save the repository to the given path in case it was distant.",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
 @click.option(
@@ -40,26 +40,27 @@ def main():
 @click.option(
     "--after",
     "-a",
-    help="Only consider commits between the reference and the given commit.",
+    help="Only consider commits that are after the given commit reference (i.e., commit SHA or TAG).",
     type=str,
 )
 @click.option(
     "--workflows",
     "-w",
-    help="The directory where the workflows will be saved.",
+    help="The directory where the extracted GHA workflow files will be saved.",
     default="workflows",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
 @click.option(
     "--output",
     "-o",
-    help="The file where the information related to the dataset will be saved.",
+    help="The file where the information related to the dataset will be saved. "
+    "In case it is not given, the collected information will be sent to the standard output.",
     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
 )
 @click.option(
     "--repository-name",
     "-n",
-    help="Add a column repository_name to the resulting table with the given value.",
+    help="Add a column `repository_name` to the resulting table that will be equal the given value.",
     type=str,
 )
 @click.option(
@@ -70,9 +71,9 @@ def main():
 )
 @click.argument(
     "repository",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
+    type=str,
 )
-def gha_workflows(
+def single(
     ref,
     save_repository,
     update,
@@ -83,7 +84,9 @@ def gha_workflows(
     headers,
     repository,
 ):
-    """Extract the workflows from the given repository."""
+    """Extract the GitHub Actions workflows from a single Git repository.
+    The Git repository can be local or distant. In the latter, it will be pulled
+    locally and deleted if not told otherwise."""
     tmp_directory = None  # the temporary directory if one is created
     repo = None  # the repository
 
@@ -132,27 +135,31 @@ def gha_workflows(
 @click.option(
     "--directory",
     "-d",
-    help="The directory where the repositories are stored.",
+    help="The directory where the Git repositories are stored.",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
     required=True,
 )
 @click.option(
     "--error-directory",
     "-e",
-    help="The directory where the errors for directory that could not "
-    "be processed are stored.",
+    help="The directory where the standard and error outputs for "
+    "Git repositories that could not be processed will be stored.",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
 @click.option(
     "--output-directory",
     "-o",
-    help="The directory where the resulting files will be stored.",
+    help="The directory where the extracted GHA workflow files will be stored.",
     default="outputs",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
 @click.argument("options", nargs=-1, type=click.UNPROCESSED)
-def batch_workflows(directory, error_directory, output_directory, options):
-    """Execute the workflows command on multiple repositories."""
+def batch(directory, error_directory, output_directory, options):
+    """Extract the GitHub Actions workflows from multiple Git repositories.
+    This command assumes every Git repositories are under a folder.
+    This command is equivalent to launching multiple times the "single" command
+    for processing a single repository.
+    """
     for folder in (error_directory, output_directory):
         if folder is not None:
             os.makedirs(folder, exist_ok=True)

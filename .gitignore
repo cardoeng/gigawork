@@ -1,6 +1,10 @@
 venv/*
 workflows/*
 *__pycache__/*
-*.csv
+*.csv*
+*.tar.*
 .vscode/*
 test.py
+build/
+*.pyc
+*.egg-info
