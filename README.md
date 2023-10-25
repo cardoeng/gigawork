@@ -6,17 +6,17 @@ Given a Git repository (or a folder containing multiple Git repositories), it ex
 
 ## Installation
 
-The easiest way to install `gha_datasets` is to install from Pypi
-```pip install TODO```
+<!-- The easiest way to install `gha_datasets` is to install from Pypi
+```pip install TODO``` -->
 
-Another easy way is to install it via `pip` from this GitHub repository
+An easy way is to install it via `pip` from this GitHub repository
 ```pip install git+https://github.com/cardoeng/msr2024_guillaume```
 
 You may wish to use this tool in a virtual environment. You can use the following pattern.
 ```
 virtualenv gha_datasets_venv
 source gha_datasets_venv/bin/activate
-pip install TODO
+pip install git+https://github.com/cardoeng/msr2024_guillaume
 ```
 
 ## Usage
@@ -125,3 +125,7 @@ You can also pass arguments to the single command by giving them after `--`. The
 ```bash
 gha_datasets batch -d repositories -e errors -o csv -- --workflows myWorkflowsResults --headers
 ```
+
+## License
+
+Distributed under [GNU Lesser General Public License v3](https://github.com/cardoeng/msr2024_guillaume/blob/master/LICENSE.txt).
