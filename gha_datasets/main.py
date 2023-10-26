@@ -197,7 +197,7 @@ def batch(directory, error_directory, output_directory, options):
         )
         args = (*default_args, *options, repo)
         p = subprocess.Popen(
-            ["gha-datasets", "gha-workflows", *args],
+            ["gha-datasets", "single", *args],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
