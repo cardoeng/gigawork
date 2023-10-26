@@ -25,10 +25,10 @@ pip install git+https://github.com/cardoeng/msr2024_guillaume
 
 After installation, the `gha-datasets` command-line tool should be available in your shell. Otherwise, please replace `gha-datasets` by `python -m gha-datasets`. The explanations in the following stays valid in both cases.
 
-You can use `gha_datasets` in two ways :
+You can use `gha-datasets` in two ways :
 
-* The first one is for only one repository.
-* The second way is for processing multiple repositories.
+1. Process only one repository. (`single` command)
+2. Process multiple repositories. (`batch` command)
 
 ```
 Usage: gha-datasets [OPTIONS] COMMAND [ARGS]...
@@ -106,28 +106,28 @@ Options:
 
 ### Examples
 
-As an example, the following command extracts every workflow files from the repository `example_repository`, add the name `my-example-name` in the output, saves the output in `output.csv` and add the CSV headers to `output.csv`. Each workflow file will be saved in the directory `workflows` (which is also the default save directory).
+As an example, the following command extracts every workflow files from the repository `example_repository`, add the name `my-example-name` in the output. It also saves various information (such as commit SHA, author name, ...) in `output.csv` and add the CSV headers to `output.csv`. Each workflow file will be saved in the directory `workflows` (which is also the default save directory).
 
 ```bash
-gha_datasets single example_repository -n my-example-name -o output.csv -w workflows --headers
+gha-datasets single example_repository -n my-example-name -o output.csv -w workflows --headers
 ```
 
-Note that the repository do not have to be already cloned. The tool can fetch it for you and clean up (unless told otherwise) when the work is done. An example is shown below. The GitHub repository `https://github.com/cardoeng/msr2024_guillaume` will be fetched, saved under the `gha_datasets` directory and the `repository_name` will be `gha_datasets_name` in the resulting CSV file. Note that, in the case `-s gha_datasets` was not specified, the tool will create a temporary directory and clean up when it finishes.
+Note that the repository does not have to be already cloned. The tool can fetch it for you and clean up (unless told otherwise) when the work is done. An example is shown below. The GitHub repository `https://github.com/cardoeng/msr2024_guillaume` will be fetched, saved under the `gha_datasets` directory and the `repository_name` will be `gha_datasets_name` in the resulting CSV file. Note that, if `-s gha_datasets` was not specified, the tool will create a temporary directory and clean up when it finishes.
 
 ```bash
-gha_datasets single https://github.com/cardoeng/msr2024_guillaume -n gha_datasets_name -s gha_datasets -o output.csv --headers
+gha-datasets single https://github.com/cardoeng/msr2024_guillaume -n gha_datasets_name -s gha_datasets -o output.csv --headers
 ```
 
-The following command extracts the workflows from each repository in the folder `repositories`, store the standard and error output in the directory `errors` for repositories that could not be processed and store every CSV file into the `csv` directory. Note that, behind the scenes, it will launch, for each repository, a process executing the `single` command explained above with the repository name equals to the name of the folder.
+The following command extracts the workflows from each repository in the folder `repositories`, store the standard and error output for each repository in the directory `errors`. That only applies for repositories that could not be processed due to an error. The command also store every CSV file into the `csv` directory. Note that, behind the scenes, it will launch, for each repository, a process executing the `single` command explained above with the repository name equals to the name of the folder.
 
 ```bash
-gha_datasets batch -d repositories -e errors -o csv
+gha-datasets batch -d repositories -e errors -o csv
 ```
 
-You can also give arguments to the single command by giving them after `--`. The following command is the same as above, except we tell the `single` command to store each workflows in the `myWorkflowsResultsDirectory` and add headers to the resulting CSV file.
+When using the `batch` command, you can also give arguments to the `single` command by giving them after `--`. The following command is the same as above, except we tell the `single` command to store each workflows in the `myWorkflowsResultsDirectory` and add headers to the resulting CSV file (for each repository).
 
 ```bash
-gha_datasets batch -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
+gha-datasets batch -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
 ```
 
 ## License
