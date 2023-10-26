@@ -86,7 +86,11 @@ def single(
 ):
     """Extract the GitHub Actions workflows from a single Git repository.
     The Git repository can be local or distant. In the latter, it will be pulled
-    locally and deleted if not told otherwise."""
+    locally and deleted if not told otherwise.
+
+    Example of usage:
+    gha_datasets single myRepository -n myRepositoryName -s saveRepositoryName -o output.csv --headers
+    """
     tmp_directory = None  # the temporary directory if one is created
     repo = None  # the repository
 
@@ -159,6 +163,9 @@ def batch(directory, error_directory, output_directory, options):
     This command assumes every Git repositories are under a folder.
     This command is equivalent to launching multiple times the "single" command
     for processing a single repository.
+
+    Example of usage:
+    gha_datasets batch -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
     """
     for folder in (error_directory, output_directory):
         if folder is not None:
