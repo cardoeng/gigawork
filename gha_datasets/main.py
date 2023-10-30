@@ -25,48 +25,48 @@ def main():
     "--branch",
     "-r",
     default="HEAD",
-    help="The commit reference (i.e., commit SHA or TAG) to start from.",
+    help="The most recent commit reference (i.e., commit SHA or TAG) to be considered for the extraction",
     type=str,
 )
 @click.option(
     "--save-repository",
     "-s",
-    help="Save the repository to the given path in case it was distant.",
+    help="Save the repository to the given directory in case `REPOSITORY` was distant.",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
 @click.option(
-    "--update", "-u", help="Update the repository at the given path.", is_flag=True
+    "--update", "-u", help="Fetch the repository at the given path.", is_flag=True
 )
 @click.option(
     "--after",
     "-a",
-    help="Only consider commits that are after the given commit reference (i.e., commit SHA or TAG).",
+    help="Only consider commits after the given commit reference (i.e., commit SHA or TAG).",
     type=str,
 )
 @click.option(
     "--workflows",
     "-w",
-    help="The directory where the extracted GHA workflow files will be saved.",
+    help="The directory where the extracted GitHub Actions workflow files will be stored.",
     default="workflows",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
 @click.option(
     "--output",
     "-o",
-    help="The file where the information related to the dataset will be saved. "
-    "In case it is not given, the collected information will be sent to the standard output.",
+    help="The output CSV file where information related to the dataset will be stored. "
+    "By default, the information will written to the standard output.",
     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
 )
 @click.option(
     "--repository-name",
     "-n",
-    help="Add a column `repository_name` to the resulting table that will be equal the given value.",
+    help="Add a column `repository_name` to the output file where each value will be equal to the provided parameter.",
     type=str,
 )
 @click.option(
     "--headers",
     "-h",
-    help="Add a header row to the resulting file.",
+    help="Create a header row for the CSV output file.",
     is_flag=True,
 )
 @click.argument(
@@ -84,12 +84,12 @@ def single(
     headers,
     repository,
 ):
-    """Extract the GitHub Actions workflows from a single Git repository.
-    The Git repository can be local or distant. In the latter, it will be pulled
-    locally and deleted if not told otherwise.
+    """Extract the GitHub Actions workflows from a single Git repo.
+    The Git repository can be local or distant. In the latter case, it will be pulled
+    locally and deleted unless specified otherwise.
 
     Example of usage:
-    gha_datasets single myRepository -n myRepositoryName -s saveRepositoryName -o output.csv --headers
+    gha_datasets single myRepository -n myRepositoryName -s directory -o output.csv --headers
     """
     tmp_directory = None  # the temporary directory if one is created
     repo = None  # the repository
@@ -139,7 +139,7 @@ def single(
 @click.option(
     "--directory",
     "-d",
-    help="The directory where the Git repositories are stored.",
+    help="The directory where the Git repositories that will be extracted will be stored.",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
     required=True,
 )
@@ -153,16 +153,18 @@ def single(
 @click.option(
     "--output-directory",
     "-o",
-    help="The directory where the extracted GHA workflow files will be stored.",
+    help="The directory where the extracted GitHub Actions workflow files will be stored.",
     default="outputs",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
 @click.argument("options", nargs=-1, type=click.UNPROCESSED)
 def batch(directory, error_directory, output_directory, options):
-    """Extract the GitHub Actions workflows from multiple Git repositories.
+    """Extract the GitHub Actions workflows from multiple Git repos.
     This command assumes every Git repositories are under a folder.
     This command is equivalent to launching multiple times the "single" command
-    for processing a single repository.
+    for processing a single repository. Arguments given after '--' will be passed
+    to each 'single' command. '--output' and '--repository-name' cannot be passed
+    after '--' as they are used by default.
 
     Example of usage:
     gha_datasets batch -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
