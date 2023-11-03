@@ -22,9 +22,10 @@ class Entry(NamedTuple):
     commit: str
     author_name: str
     author_email: str
-    commiter_name: str
-    commiter_email: str
-    date: str
+    committer_name: str
+    committer_email: str
+    committed_date: str
+    authored_date: str
     workflow: str
     workflow_content: str
     change_type: str
@@ -186,6 +187,7 @@ class FilesExtractor(Extractor):
             commit.committer.name,
             commit.committer.email,
             commit.committed_date,
+            commit.authored_date,
             workflow_path,
             _hash,
             change_type.value,
