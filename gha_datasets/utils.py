@@ -7,6 +7,7 @@ from .extractors import Entry, RepositoryEntry
 def write_csv(
     entries: Iterable[Entry],
     file: TextIOWrapper,
+    entry_class,
     headers: bool = False,
     repository_name: str = None,
 ):
@@ -21,10 +22,11 @@ def write_csv(
         Defaults to None.
     """
     if repository_name:
-        entries = map(lambda e: RepositoryEntry(repository_name, *e), entries)
+        entries = map(lambda e: (repository_name, *e), entries)
     writer = csv.writer(file)
     if headers:
-        writer.writerow(
-            Entry._fields if not repository_name else RepositoryEntry._fields
-        )
+        h = list(entry_class._fields)
+        if repository_name:
+            h.insert(0, "repository")
+        writer.writerow(h)
     writer.writerows(entries)

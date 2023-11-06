@@ -58,6 +58,13 @@ def main():
     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
 )
 @click.option(
+    "--rename-output",
+    "-ro",
+    help="The output CSV file where information related to the renaming of workflows will be stored. "
+    "By default, this informations will not be stored.",
+    type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
+)
+@click.option(
     "--repository-name",
     "-n",
     help="Add a column `repository_name` to the output file where each value will be equal to the provided parameter.",
@@ -80,6 +87,7 @@ def single(
     after,
     workflows,
     output,
+    rename_output,
     repository_name,
     headers,
     repository,
@@ -120,13 +128,28 @@ def single(
             logger.debug(exception)
 
     extractor = WorkflowsExtractor(repo, workflows)
-    entries = extractor.extract(ref, after)
+    entries, rename_entries = extractor.extract(ref, after)
 
     if output:
         with open(output, "a", encoding="utf-8") as file:
-            utils.write_csv(entries, file, headers, repository_name)
+            utils.write_csv(
+                entries, file, entries[0].__class__, headers, repository_name
+            )
     else:
-        utils.write_csv(entries, sys.stdout, headers, repository_name)
+        utils.write_csv(
+            entries, sys.stdout, entries[0].__class__, headers, repository_name
+        )
+
+    print(rename_output, rename_entries)
+    if rename_output and len(rename_entries) > 0:
+        with open(rename_output, "a", encoding="utf-8") as file:
+            utils.write_csv(
+                rename_entries,
+                file,
+                rename_entries[0].__class__,
+                headers,
+                repository_name,
+            )
 
     # print(ref, save_repository, update, after, workflows, output, repository_name, headers, repository, sep="\n")
 

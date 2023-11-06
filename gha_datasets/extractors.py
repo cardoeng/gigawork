@@ -32,7 +32,18 @@ class Entry(NamedTuple):
     change_type: str
 
 
+class RenameEntry(NamedTuple):
+    """A single entry in the rename dataset."""
+
+    commit: str
+    from_workflow: str
+    to_workflow: str
+
+
 RepositoryEntry = namedtuple("RepositoryEntry", ("repository",) + Entry._fields)
+RepositoryRenameEntry = namedtuple(
+    "RepositoryRenameEntry", ("repository",) + RenameEntry._fields
+)
 
 
 class Extractor(ABC):
@@ -61,18 +72,26 @@ class FilesExtractor(Extractor):
         self.directory = directory
         os.makedirs(self.save_directory, exist_ok=True)
 
-    def extract(self, ref="HEAD", after=None, *args, **kwargs) -> List[Entry]:
+    def extract(
+        self, ref="HEAD", after=None, *args, **kwargs
+    ) -> tuple[List[Entry], List[RenameEntry]]:
         entries = []
+        rename_entries = []
         if after is not None:
             ref = f"{after}..{ref}"
         # iter parents until `after` if given
         for commit in self.repository.iter_commits(
             ref, self.directory, **{"first-parent": True}
         ):
-            self._extract_files(commit, entries)
-        return entries
+            self._extract_files(commit, entries, rename_entries)
+        return entries, rename_entries
 
-    def _extract_files(self, commit: git.Commit, entries: List[Entry]):
+    def _extract_files(
+        self,
+        commit: git.Commit,
+        entries: List[Entry],
+        rename_entries: List[RenameEntry],
+    ):
         """Extract the workflows from the given commit.
 
         Args:
@@ -80,9 +99,9 @@ class FilesExtractor(Extractor):
             previous (Union[None, git.Commit]): The previous commit to compare to.
             If None, compare to the first commit of the repository.
             directory (PathLike): The directory to consider.
-
-        Returns:
-            List[Entry]: The list of entries extracted from the commit.
+            entries (List[Entry]): The list of entries representing the dataset.
+            rename_entries (List[RenameEntry]): The list of rename entries representing the
+            renaming entries of the dataset.
         """
         # we compare the parent commit to the current commit
         # The order of the diff is important, because we want to know
@@ -99,7 +118,7 @@ class FilesExtractor(Extractor):
             ) and not diff.b_path.startswith(self.directory):
                 continue  # a commit might contains diffs for files we do not care about
             try:
-                self._process_diff(diff, entries, commit, parent)
+                self._process_diff(diff, entries, rename_entries, commit, parent)
             except ValueError:
                 logger.error("Could not process diff %s (commit=%s)", str(diff), commit)
                 sys.exit(1)
@@ -134,6 +153,7 @@ class FilesExtractor(Extractor):
         self,
         diff: git.Diff,
         entries: List[Entry],
+        rename_entries: List[RenameEntry],
         commit: git.Commit,
         parent: git.Commit = None,
     ):
@@ -141,7 +161,9 @@ class FilesExtractor(Extractor):
 
         Args:
             diff (git.Diff): The diff to process.
-            entries (List[Entry]): The list of entries to add to / the results.
+            entries (List[Entry]): The list of entries representing the dataset.
+            rename_entries (List[RenameEntry]): The list of rename entries representing the
+            renaming entries of the dataset.
             commit (git.Commit): The commit to which the diff belongs.
             parent (git.Commit, optional): The parent of the commit (if None, will try
             to get it automatically). Defaults to None.
@@ -159,6 +181,9 @@ class FilesExtractor(Extractor):
             )
             return  # we do not care about this diff
 
+        if change_type == ChangeTypes.RENAMED:
+            rename_entry = RenameEntry(commit, diff.a_path, diff.b_path)
+            rename_entries.append(rename_entry)
         for params in self._get_blob_parameters(diff, change_type, commit):
             entries.append(self._process_blob(*params))
 
