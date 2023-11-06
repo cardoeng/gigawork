@@ -8,6 +8,7 @@ import hashlib
 import logging
 from os import PathLike
 import os
+import sys
 from typing import List, NamedTuple
 import git
 
@@ -27,7 +28,7 @@ class Entry(NamedTuple):
     committed_date: str
     authored_date: str
     workflow: str
-    workflow_content: str
+    workflow_contents: str
     change_type: str
 
 
@@ -91,7 +92,7 @@ class FilesExtractor(Extractor):
         # we only compare with the first parent
         # as we iter_commits with first-parent=True
         parent = commit.parents[0] if len(commit.parents) > 0 else None
-        diffs = parent.diff(commit) if parent else commit.diff(None)
+        diffs = parent.diff(commit) if parent else commit.diff(git.NULL_TREE)
         for diff in diffs:
             if not diff.a_path.startswith(
                 self.directory
@@ -101,6 +102,7 @@ class FilesExtractor(Extractor):
                 self._process_diff(diff, entries, commit, parent)
             except ValueError:
                 logger.error("Could not process diff %s (commit=%s)", str(diff), commit)
+                sys.exit(1)
 
     def _get_blob_parameters(
         self, diff: git.Diff, change_type: ChangeTypes, commit
@@ -149,7 +151,12 @@ class FilesExtractor(Extractor):
         try:
             change_type = ChangeTypes(diff.change_type)
         except ValueError:
-            logger.debug("Could not process diff %s (commit=%s)", str(diff), commit)
+            logger.debug(
+                "Could not process diff %s (commit=%s, change_type=%s)",
+                str(diff),
+                commit,
+                diff.change_type,
+            )
             return  # we do not care about this diff
 
         for params in self._get_blob_parameters(diff, change_type, commit):
