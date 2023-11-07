@@ -130,18 +130,20 @@ def single(
     extractor = WorkflowsExtractor(repo, workflows)
     entries, rename_entries = extractor.extract(ref, after)
 
-    if output:
-        with open(output, "a", encoding="utf-8") as file:
+    if len(entries) > 0:
+        if output:
+            os.makedirs(os.path.dirname(output), exist_ok=True)
+            with open(output, "a", encoding="utf-8") as file:
+                utils.write_csv(
+                    entries, file, entries[0].__class__, headers, repository_name
+                )
+        else:
             utils.write_csv(
-                entries, file, entries[0].__class__, headers, repository_name
+                entries, sys.stdout, entries[0].__class__, headers, repository_name
             )
-    else:
-        utils.write_csv(
-            entries, sys.stdout, entries[0].__class__, headers, repository_name
-        )
 
-    print(rename_output, rename_entries)
     if rename_output and len(rename_entries) > 0:
+        os.makedirs(os.path.dirname(rename_output), exist_ok=True)
         with open(rename_output, "a", encoding="utf-8") as file:
             utils.write_csv(
                 rename_entries,
@@ -216,9 +218,11 @@ def batch(directory, error_directory, output_directory, options):
             continue
         default_args = (
             "--output",
-            os.path.join(output_directory, os.path.basename(repo) + ".csv"),
+            os.path.join(output_directory, "output", os.path.basename(repo) + ".csv"),
             "--repository-name",
             os.path.basename(repo),
+            "--rename-output",
+            os.path.join(output_directory, "rename", os.path.basename(repo) + ".csv"),
         )
         args = (*default_args, *options, repo)
         p = subprocess.Popen(
