@@ -1,9 +1,10 @@
-venv/*
-workflows/*
+venv
+workflows
 *__pycache__/*
 *.csv*
 *.tar.*
 .vscode/*
+
 test.py
 build/
 *.pyc

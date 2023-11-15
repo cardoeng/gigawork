@@ -111,7 +111,7 @@ def main(
         sys.exit(1)
 
     # update it if requested
-    if update == True:
+    if update is True:
         try:
             update_repository(repo)
         except git.exc.GitCommandError as exception:

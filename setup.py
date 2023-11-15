@@ -2,7 +2,7 @@ from os import path
 from setuptools import setup, find_packages
 from codecs import open
 
-NAME = "gha_datasets"
+NAME = "gigawork"
 
 with open(
     path.join(path.abspath(path.dirname(__file__)), "README.md"), encoding="utf-8"
@@ -14,7 +14,7 @@ setup(
     version="1.0.0",
     # license="LGPLv3",
     author="Guillaume Cardoen",
-    url="https://github.com/cardoeng/msr2024_guillaume",
+    url="https://github.com/cardoeng/gigawork",
     description="A tool for extracting GitHub Actions workflows",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -33,7 +33,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
     ],
-    keywords="gha workflows dataset",
+    keywords="gha workflows dataset tool",
     packages=find_packages(include=[NAME]),
     python_requires="~= 3.8",
     install_requires=[
@@ -41,5 +41,5 @@ setup(
         "GitPython ~= 3.1.37",
     ],
     zip_safe=True,
-    entry_points={"console_scripts": [f"gha-datasets={NAME}.main:main"]},
+    entry_points={"console_scripts": [f"{NAME}={NAME}.main:main"]},
 )
