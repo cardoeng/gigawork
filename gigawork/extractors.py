@@ -20,15 +20,15 @@ logger = logging.getLogger(__name__)
 class Entry(NamedTuple):
     """A single entry in the dataset."""
 
-    commit: str
+    commit_hash: str
     author_name: str
     author_email: str
     committer_name: str
     committer_email: str
     committed_date: str
     authored_date: str
-    workflow: str
-    workflow_contents: str
+    file_path: str
+    file_hash: str
     change_type: str
 
 
