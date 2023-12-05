@@ -206,7 +206,7 @@ class FilesExtractor(Extractor):
             raise ValueError("Blob cannot be None")
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
-        path = os.path.join(self.save_directory, _hash + ".yaml")
+        path = os.path.join(self.save_directory, _hash)
         if not os.path.exists(path):
             # if it exists, we already have the workflow
             # (well, we might have a collision, but it is unlikely)
