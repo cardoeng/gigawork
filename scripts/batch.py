@@ -4,21 +4,6 @@ import subprocess
 import click
 
 
-"""
-The following command extracts the workflows from each repository in the folder `repositories`, store the standard and error output for each repository in the directory `errors`. That only applies for repositories that could not be processed due to an error. The command also store every CSV file into the `csv` directory. Note that, behind the scenes, it will launch, for each repository, a process executing the `single` command explained above with the repository name equals to the name of the folder.
-
-```bash
-batch.py -d repositories -e errors -o csv
-```
-
-When using the `batch` command, you can also give arguments to the `single` command by giving them after `--`. The following command is the same as above, except we tell the `single` command to store each workflows in the `myWorkflowsResultsDirectory` and add headers to the resulting CSV file (for each repository).
-
-```bash
-batch.py -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
-```
-"""
-
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -88,22 +73,22 @@ def batch(directory, error_directory, output_directory, options):
             os.path.join(output_directory, "rename", os.path.basename(repo) + ".csv"),
         )
         args = (*default_args, *options, repo)
-        p = subprocess.Popen(
-            ["gha-datasets", "single", *args],
+        sproc = subprocess.Popen(
+            ["gigawork", *args],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        out, err = p.communicate()
-        if p.returncode != 0:
+        out, err = sproc.communicate()
+        if sproc.returncode != 0:
             logger.error(
                 "(Error %d) Could not process repository '%s'", errors_count, repo
             )
             errors_count += 1
             if error_directory is not None:
                 base = os.path.join(error_directory, os.path.basename(repo))
-                with open(base + ".out.txt", "w") as file:
+                with open(base + ".out.txt", "w", encoding="utf-8") as file:
                     file.write(out.decode("utf-8"))
-                with open(base + ".err.txt", "w") as file:
+                with open(base + ".err.txt", "w", encoding="utf-8") as file:
                     file.write(err.decode("utf-8"))
             continue
 

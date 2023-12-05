@@ -3,7 +3,7 @@ workflows
 *__pycache__/*
 *.csv*
 *.tar.*
-.vscode/*
+.vscode
 
 test.py
 build/
