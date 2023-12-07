@@ -91,7 +91,7 @@ def main(
     locally and deleted unless specified otherwise.
 
     Example of usage:
-    gha_datasets single myRepository -n myRepositoryName -s directory -o output.csv --headers
+    gha_datasets myRepository -n myRepositoryName -s directory -o output.csv --headers
     """
     tmp_directory = None  # the temporary directory if one is created
     repo = None  # the repository

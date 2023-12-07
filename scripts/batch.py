@@ -40,7 +40,7 @@ def batch(directory, error_directory, output_directory, options):
     after '--' as they are used by default.
 
     Example of usage:
-    gha_datasets batch -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
+    gha_datasets -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
     """
     for folder in (error_directory, output_directory):
         if folder is not None:
