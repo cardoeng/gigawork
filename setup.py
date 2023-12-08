@@ -12,7 +12,7 @@ with open(
 setup(
     name=NAME,
     version="1.0.1",
-    # license="LGPLv3",
+    license="LGPLv3",
     author="Guillaume Cardoen",
     url="https://github.com/cardoeng/gigawork",
     description="A tool for extracting GitHub Actions workflows",
@@ -20,7 +20,7 @@ setup(
     long_description_content_type="text/markdown",
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
-        # "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+        "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Intended Audience :: Education",
