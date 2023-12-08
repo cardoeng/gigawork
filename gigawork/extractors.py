@@ -36,8 +36,8 @@ class RenameEntry(NamedTuple):
     """A single entry in the rename dataset."""
 
     commit: str
-    from_workflow: str
-    to_workflow: str
+    old_name: str
+    new_name: str
 
 
 RepositoryEntry = namedtuple("RepositoryEntry", ("repository",) + Entry._fields)
