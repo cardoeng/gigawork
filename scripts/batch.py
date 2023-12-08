@@ -40,7 +40,7 @@ def batch(directory, error_directory, output_directory, options):
     after '--' as they are used by default.
 
     Example of usage:
-    gha_datasets -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
+    batch.py -d repositories -e errors -o csv -- --workflows myWorkflowsResultsDirectory --headers
     """
     for folder in (error_directory, output_directory):
         if folder is not None:
@@ -50,7 +50,7 @@ def batch(directory, error_directory, output_directory, options):
     # there might be memory leaks here and there
     # starting a new process for each repository might be better
     # in the long run
-    # we could even multiprocess it (bit might be problematic with git?)
+    # we could even multiprocess it (but might be problematic with git?)
     errors_count = 0
     for i, repo in enumerate(to_process):
         logger.info(

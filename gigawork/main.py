@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--repository-name",
     "-n",
-    help="Add a column `repository_name` to the output file where each value will be equal to the provided parameter.",
+    help="Add a column `repository` to the output file where each value will be equal to the provided parameter.",
     type=str,
 )
 @click.option(
@@ -91,7 +91,7 @@ def main(
     locally and deleted unless specified otherwise.
 
     Example of usage:
-    gha_datasets myRepository -n myRepositoryName -s directory -o output.csv --headers
+    gigawork myRepository -n myRepositoryName -s directory -o output.csv --headers
     """
     tmp_directory = None  # the temporary directory if one is created
     repo = None  # the repository
@@ -150,8 +150,6 @@ def main(
                 headers,
                 repository_name,
             )
-
-    # print(ref, save_repository, update, after, workflows, output, repository_name, headers, repository, sep="\n")
 
     # cleanup
     if tmp_directory:
