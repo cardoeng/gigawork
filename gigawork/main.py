@@ -126,7 +126,9 @@ def main(
 
     if len(entries) > 0:
         if output:
-            os.makedirs(os.path.dirname(output), exist_ok=True)
+            parent = os.path.dirname(output)
+            if parent != "":
+                os.makedirs(parent, exist_ok=True)
             with open(output, "a", encoding="utf-8") as file:
                 utils.write_csv(
                     entries, file, entries[0].__class__, headers, repository_name
@@ -137,7 +139,9 @@ def main(
             )
 
     if rename_output and len(rename_entries) > 0:
-        os.makedirs(os.path.dirname(rename_output), exist_ok=True)
+        parent = os.path.dirname(rename_output)
+        if parent != "":
+            os.makedirs(parent, exist_ok=True)
         with open(rename_output, "a", encoding="utf-8") as file:
             utils.write_csv(
                 rename_entries,

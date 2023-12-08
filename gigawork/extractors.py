@@ -70,7 +70,8 @@ class FilesExtractor(Extractor):
         super().__init__(repository)
         self.save_directory = save_directory
         self.directory = directory
-        os.makedirs(self.save_directory, exist_ok=True)
+        if self.save_directory != "":
+            os.makedirs(self.save_directory, exist_ok=True)
 
     def extract(
         self, ref="HEAD", after=None, *args, **kwargs
