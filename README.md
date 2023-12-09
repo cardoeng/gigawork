@@ -6,8 +6,10 @@ Given a Git repository (or a folder containing multiple Git repositories), it ex
 
 ## Installation
 
-<!-- The easiest way to install `gigawork` is to install from Pypi
-```pip install TODO``` -->
+The easiest way to install `gigawork` is to install from Pypi
+```
+pip install gigawork
+```
 
 An easy way to install `gigawork` is via `pip` from this GitHub repository
 ```
