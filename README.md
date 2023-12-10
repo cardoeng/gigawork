@@ -2,7 +2,9 @@
 
 An automated tool for extracting GitHub Actions' workflows from Git repositories written in Python.
 `gigawork` (**Gi**ve me **G**itHub **A**ctions **Work**flows) is primarily designed to be used as a command-line tool.
-Given a Git repository (or a folder containing multiple Git repositories), it extracts the different workflows and their versions from the Git history. The workflows and its related information (such as the author name, the commit date, ...) are saved in a given directory and a given CSV file.
+Given a Git repository, it extracts the different workflows and their versions from the Git history. 
+The extraction is done by traversing the Git history of the repository and going back in time respecting the first-parent rule until the first commit (or the given reference) is reached.
+The workflows are saved in a given directory along with relevant metadata (see [Usage](#usage)) in a given CSV file.
 
 ## Installation
 
@@ -11,16 +13,23 @@ The easiest way to install `gigawork` is to install from Pypi
 pip install gigawork
 ```
 
-An easy way to install `gigawork` is via `pip` from this GitHub repository
+Another easy way to install `gigawork` is via `pip` from this GitHub repository
 ```
 pip install git+https://github.com/cardoeng/gigawork
+```
+
+Alternatively, you can clone this repository and install it locally
+```
+git clone https://github.com/cardoeng/gigawork
+cd gigawork
+pip install .
 ```
 
 You may wish to use this tool in a virtual environment. You can use the following commands.
 ```
 virtualenv gigawork_venv
 source gigawork_venv/bin/activate
-pip install git+https://github.com/cardoeng/gigawork
+pip install gigawork
 ```
 
 ## Usage
@@ -32,49 +41,83 @@ You can use `gigawork` with the following arguments:
 ```
 Usage: gigawork [OPTIONS] REPOSITORY
 
-  Extract the GitHub Actions workflows from a single Git repository. The Git
-  repository can be local or distant. In the latter, it will be pulled locally
-  and deleted if not told otherwise.
+  Extract the GitHub Actions workflow files from a single Git repository
+  `REPOSITORY`. The extraction is done by traversing the Git history of the
+  repository starting from the reference given to `-r` and going back in time
+  respecting the first-parent rule until the first commit (or the reference
+  given to `-a`) is reached. The Git repository can be local or distant. In
+  the latter case, it will be pulled locally and deleted unless specified
+  otherwise. Every extracted workflow file will be stored in the directory
+  given to `-w` (or the directory `workflows` if not specified). The metadata
+  related to the extracted workflows will be written in the CSV file given to
+  `-o`, or in the standard output if not specified. The metadata related to
+  the renaming of workflows will be stored in the CSV file given to `-ro`, or
+  not stored if not specified.
 
-  Example of usage:  gigawork single myRepository -n myRepositoryName -s
-  saveRepositoryName -o output.csv --headers
+  Example of usage: gigawork myRepository -n myRepositoryName -s directory -o
+  output.csv --no-headers
 
 Options:
-  -r, --ref, --branch TEXT        The commit reference (i.e., commit SHA or
-                                  TAG) to start from.
+  -r, --ref, --branch REF         The most recent commit reference (i.e.,
+                                  commit SHA or TAG) to be considered for the
+                                  extraction.
   -s, --save-repository DIRECTORY
-                                  Save the repository to the given path in
-                                  case it was distant.
-  -u, --update                    Update the repository at the given path.
-  -a, --after TEXT                Only consider commits that are after the
-                                  given commit reference (i.e., commit SHA or
-                                  TAG).
-  -w, --workflows DIRECTORY       The directory where the extracted GHA
-                                  workflow files will be saved.
-  -o, --output FILE               The file where the information related to
-                                  the dataset will be saved. In case it is not
-                                  given, the collected information will be
-                                  sent to the standard output.
-  -n, --repository-name TEXT      Add a column `repository_name` to the
-                                  resulting table that will be equal the given
-                                  value.
-  -h, --headers                   Add a header row to the resulting file.
-  --help                          Show this message and exit.
+                                  Save the repository to the given directory
+                                  in case `REPOSITORY` was distant.
+  -u, --update                    Fetch the repository at the given path.
+  -a, --after REF                 Only consider commits after the given commit
+                                  reference (i.e., commit SHA or TAG).
+  -w, --workflows DIRECTORY       The directory where the extracted GitHub
+                                  Actions workflow files will be stored.
+  -o, --output FILE               The output CSV file where information
+                                  related to the dataset will be stored. By
+                                  default, the information will written to the
+                                  standard output.
+  -ro, --rename-output FILE       The output CSV file where information
+                                  related to the renaming of workflows will be
+                                  stored. By default, this informations will
+                                  not be stored.
+  -n, --repository-name TEXT      Add a column `repository` to the output file
+                                  where each value will be equal to the
+                                  provided parameter.
+  --no-headers                    Create a header row for the CSV output file.
+  -h, --help                      Show this message and exit.
 ```
+
+The CSV file given to `-o` (or that will be written to the standard output by default) will contain the following columns:
+- `repository`: the name of the repository if `-n` was specified
+- `commit_hash`: the commit SHA of the commit where the workflow file was extracted
+- `author_name`: the name of the author of the commit
+- `author_email`: the email of the author of the commit
+- `committer_name`: the name of the committer of the commit
+- `committer_email`: the email of the committer of the commit
+- `committed_date`: the committed date of the commit
+- `authored_date`: the authored date of the commit
+- `file_path`: the path of the workflow file in the repository
+- `file_hash`: the SHA of the workflow file (and so, its name in the output directory)
+- `change_type`: the type of change (A for added, M for modified, D for deleted). Note that a renamed file will be seen as a deletion and an addition due to Git allowing modifications while renaming a file.
+
+The CSV file given to `-ro` will contain the following columns:
+- `repository`: the name of the repository if `-n` was specified
+- `commit`: the commit SHA of the commit where the renaming happened
+- `old_name`: the old name of the workflow file
+- `new_name`: the new name of the workflow file
 
 ### Examples
 
-As an example, the following command extracts every workflow files from the repository `example_repository`, add the name `my-example-name` in the output. It also saves various information (such as commit SHA, author name, ...) in `output.csv` and add the CSV headers to `output.csv`. Each workflow file will be saved in the directory `workflows` (which is also the default save directory).
+As an example, the following command extracts every workflow files from the repository `example_repository`, add the name `my-example-name` in the output. It also saves various information (such as commit SHA, author name, ...) in `output.csv` (with the headers as `--no-headers` is not specified). Each workflow file will be saved in the directory `workflows` (which is also the default save directory).
 
 ```bash
-gigawork example_repository -n my-example-name -o output.csv -w workflows --headers
+gigawork example_repository -n my-example-name -o output.csv -w workflows -ro rename_output.csv
 ```
 
-Note that the repository does not have to be already cloned. The tool can fetch it for you and clean up (unless told otherwise) when the work is done. An example is shown below. The GitHub repository `https://github.com/cardoeng/gigawork` will be fetched, saved under the `gigawork` directory and the `repository_name` will be `gigawork_name` in the resulting CSV file. Note that, if `-s gigawork` was not specified, the tool will create a temporary directory and clean up when it finishes.
+Note that the repository does not have to be already cloned. The tool can fetch it for you and clean up (unless told otherwise) when the work is done. An example is shown below. The GitHub repository `https://github.com/cardoeng/gigawork` will be fetched, saved under the `gigawork` directory and the `repository` column will be `gigawork_name` in the resulting CSV file. Note that, if `-s gigawork` was not specified, the tool will create a temporary directory and clean up when it finishes.
 
 ```bash
-gigawork https://github.com/cardoeng/gigawork -n gigawork_name -s gigawork -o output.csv --headers
+gigawork https://github.com/cardoeng/gigawork -n gigawork_name -s gigawork -o output.csv -ro rename_output.csv
 ```
+
+In our case, the repository `gigawork` has no renaming in its Git history. Therefore, `rename_output.csv` will not be created.
 
 ## License
 

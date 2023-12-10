@@ -65,6 +65,7 @@ def batch(directory, error_directory, output_directory, options):
             logger.warning("'%s' is not a directory. Skipping...", repo)
             continue
         default_args = (
+            "--no-headers",
             "--output",
             os.path.join(output_directory, "output", os.path.basename(repo) + ".csv"),
             "--repository-name",

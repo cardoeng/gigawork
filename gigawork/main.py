@@ -4,6 +4,7 @@ import sys
 import logging
 import tempfile
 import click
+from gigawork.param_types import GitReference
 import git
 from .extractors import WorkflowsExtractor
 from .repository import clone_repository, read_repository, update_repository
@@ -12,15 +13,17 @@ from . import utils
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# See https://click.palletsprojects.com/en/8.1.x/documentation/#help-texts
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
-@click.command()
+@click.command(context_settings=CONTEXT_SETTINGS)
 @click.option(
     "--ref",
     "--branch",
     "-r",
     default="HEAD",
-    help="The most recent commit reference (i.e., commit SHA or TAG) to be considered for the extraction",
-    type=str,
+    help="The most recent commit reference (i.e., commit SHA or TAG) to be considered for the extraction.",
+    type=GitReference(),
 )
 @click.option(
     "--save-repository",
@@ -35,7 +38,7 @@ logger = logging.getLogger(__name__)
     "--after",
     "-a",
     help="Only consider commits after the given commit reference (i.e., commit SHA or TAG).",
-    type=str,
+    type=GitReference(),
 )
 @click.option(
     "--workflows",
@@ -65,9 +68,8 @@ logger = logging.getLogger(__name__)
     type=str,
 )
 @click.option(
-    "--headers",
-    "-h",
-    help="Create a header row for the CSV output file.",
+    "--no-headers",
+    help="Remove the header row from the CSV output file.",
     is_flag=True,
 )
 @click.argument(
@@ -83,15 +85,23 @@ def main(
     output,
     rename_output,
     repository_name,
-    headers,
+    no_headers,
     repository,
 ):
-    """Extract the GitHub Actions workflows from a single Git repo.
+    """Extract the GitHub Actions workflow files from a single Git repository `REPOSITORY`.
+    The extraction is done by traversing the Git history of the repository starting
+    from the reference given to `-r` and going back in time respecting the first-parent rule until
+    the first commit (or the reference given to `-a`) is reached.
     The Git repository can be local or distant. In the latter case, it will be pulled
     locally and deleted unless specified otherwise.
-
+    Every extracted workflow file will be stored in the directory given to `-w` (or the
+    directory `workflows` if not specified).
+    The metadata related to the extracted workflows will be written in the CSV file given to `-o`,
+    or in the standard output if not specified. The metadata related to the renaming of workflows
+    will be stored in the CSV file given to `-ro`, or not stored if not specified.
+    
     Example of usage:
-    gigawork myRepository -n myRepositoryName -s directory -o output.csv --headers
+    gigawork myRepository -n myRepositoryName -s directory -o output.csv --no-headers
     """
     tmp_directory = None  # the temporary directory if one is created
     repo = None  # the repository
@@ -131,11 +141,11 @@ def main(
                 os.makedirs(parent, exist_ok=True)
             with open(output, "a", encoding="utf-8") as file:
                 utils.write_csv(
-                    entries, file, entries[0].__class__, headers, repository_name
+                    entries, file, entries[0].__class__, not no_headers, repository_name
                 )
         else:
             utils.write_csv(
-                entries, sys.stdout, entries[0].__class__, headers, repository_name
+                entries, sys.stdout, entries[0].__class__, not no_headers, repository_name
             )
 
     if rename_output and len(rename_entries) > 0:
@@ -147,7 +157,7 @@ def main(
                 rename_entries,
                 file,
                 rename_entries[0].__class__,
-                headers,
+                not no_headers,
                 repository_name,
             )
 
