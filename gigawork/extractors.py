@@ -29,6 +29,7 @@ class Entry(NamedTuple):
     authored_date: str
     file_path: str
     file_hash: str
+    previous_file_hash: str
     change_type: str
 
 
@@ -143,12 +144,14 @@ class FilesExtractor(Extractor):
                 *self._get_blob_parameters(diff, ChangeTypes.ADDED, commit),
             )
         if change_type == ChangeTypes.DELETED:
-            blob, path = diff.a_blob, diff.a_path
+            blob, old_blob, path = diff.a_blob, None, diff.a_path
+        elif change_type == ChangeTypes.ADDED:
+            blob, old_blob, path = diff.b_blob, None, diff.b_path
         else:
-            blob, path = diff.b_blob, diff.b_path
+            blob, old_blob, path = diff.b_blob, diff.a_blob, diff.b_path
         if len(commit.parents) == 0:
             change_type = ChangeTypes.ADDED
-        return ((blob, commit, path, change_type),)
+        return ((blob, old_blob, commit, path, change_type),)
 
     def _process_diff(
         self,
@@ -191,6 +194,7 @@ class FilesExtractor(Extractor):
     def _process_blob(
         self,
         blob: git.Blob,
+        old_blob: git.Blob,
         commit: git.Commit,
         workflow_path: PathLike,
         change_type: ChangeTypes,
@@ -207,12 +211,17 @@ class FilesExtractor(Extractor):
             raise ValueError("Blob cannot be None")
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
-        path = os.path.join(self.save_directory, _hash)
-        if not os.path.exists(path):
-            # if it exists, we already have the workflow
-            # (well, we might have a collision, but it is unlikely)
-            with open(path, "wb") as file:
-                file.write(data)
+        old_data = old_blob.data_stream.read() if old_blob else None
+        _old_hash = hashlib.sha256(old_data).hexdigest() if old_data else ""
+        for d, h in ((data, _hash), (old_data, _old_hash)):
+            if d is None:
+                continue
+            path = os.path.join(self.save_directory, h)
+            if not os.path.exists(path):
+                # if it exists, we already have the workflow
+                # (well, we might have a collision, but it is unlikely)
+                with open(path, "wb") as file:
+                    file.write(d)
         entry = Entry(
             commit.hexsha,
             commit.author.name,
@@ -223,6 +232,7 @@ class FilesExtractor(Extractor):
             commit.authored_date,
             workflow_path,
             _hash,
+            _old_hash,
             change_type.value,
         )
         return entry
