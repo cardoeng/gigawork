@@ -212,7 +212,7 @@ class FilesExtractor(Extractor):
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
         old_data = old_blob.data_stream.read() if old_blob else None
-        _old_hash = hashlib.sha256(old_data).hexdigest() if old_data else ""
+        _old_hash = hashlib.sha256(old_data).hexdigest() if old_data is not None else ""
         for d, h in ((data, _hash), (old_data, _old_hash)):
             if d is None:
                 continue
