@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import logging
 import tempfile
@@ -55,6 +56,13 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
 )
 @click.option(
+    "--auxiliary-output",
+    "-ao",
+    help="The output CSV file where information related to the auxiliary files will be stored. "
+    "By default, the information will not be stored.",
+    type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
+)
+@click.option(
     "--repository-name",
     "-n",
     help="Add a column `repository` to the output file where each value will be equal to the provided parameter.",
@@ -76,6 +84,7 @@ def main(
     after,
     workflows,
     output,
+    auxiliary_output,
     repository_name,
     no_headers,
     repository,
@@ -123,8 +132,9 @@ def main(
             )
             logger.debug(exception)
 
-    extractor = WorkflowsExtractor(repo, workflows)
-    entries = extractor.extract(ref, after)
+    extractor = WorkflowsExtractor(repo, workflows, auxiliary_output is not None)
+    extractor.extract(ref, after)
+    entries = extractor.get_entries()
 
     if len(entries) > 0:
         if output:
@@ -143,6 +153,21 @@ def main(
                 not no_headers,
                 repository_name,
             )
+
+    if auxiliary_output:
+        auxiliary_entries = extractor.get_auxiliary_entries()
+        if len(auxiliary_entries) > 0:
+            parent = os.path.dirname(auxiliary_output)
+            if parent != "":
+                os.makedirs(parent, exist_ok=True)
+            with open(auxiliary_output, "a", encoding="utf-8") as file:
+                utils.write_csv(
+                    auxiliary_entries,
+                    file,
+                    auxiliary_entries[0].__class__,
+                    not no_headers,
+                    repository_name,
+                )
 
     # cleanup
     if tmp_directory:

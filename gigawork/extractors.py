@@ -4,10 +4,12 @@ Module for every extractors defined in the project.
 
 from abc import ABC, abstractmethod
 from collections import namedtuple
+from functools import lru_cache
 import hashlib
 import logging
 from os import PathLike
 import os
+import re
 import sys
 from typing import List, NamedTuple
 import git
@@ -15,6 +17,8 @@ import git
 from .change_types import ChangeTypes
 
 logger = logging.getLogger(__name__)
+
+WORKFLOW_REGEX = re.compile("^.github/workflows/[^/]*\.(yml|yaml)$")
 
 
 class Entry(NamedTuple):
@@ -63,22 +67,33 @@ class FilesExtractor(Extractor):
         self.directory = directory
         if self.save_directory != "":
             os.makedirs(self.save_directory, exist_ok=True)
+        self.entries = []
 
-    def extract(self, ref="HEAD", after=None, *args, **kwargs) -> List[Entry]:
-        entries = []
+    def extract(self, ref="HEAD", after=None, *args, **kwargs) -> None:
         if after is not None:
             ref = f"{after}..{ref}"
         # iter parents until `after` if given
         for commit in self.repository.iter_commits(
             ref, self.directory, **{"first-parent": True}
         ):
-            self._extract_files(commit, entries)
-        return entries
+            self._extract_files(commit)
+
+    def _should_process_diff(self, diff: git.Diff) -> bool:
+        """Returns True if the diff should be processed, False otherwise.
+
+        Args:
+            diff (git.Diff): The diff to process.
+
+        Returns:
+            bool: True if the diff should be processed, False otherwise.
+        """
+        return diff.a_path.startswith(self.directory) or diff.b_path.startswith(
+            self.directory
+        )
 
     def _extract_files(
         self,
         commit: git.Commit,
-        entries: List[Entry],
     ):
         """Extract the workflows from the given commit.
 
@@ -87,7 +102,6 @@ class FilesExtractor(Extractor):
             previous (Union[None, git.Commit]): The previous commit to compare to.
             If None, compare to the first commit of the repository.
             directory (PathLike): The directory to consider.
-            entries (List[Entry]): The list of entries representing the dataset.
         """
         # we compare the parent commit to the current commit
         # The order of the diff is important, because we want to know
@@ -99,12 +113,10 @@ class FilesExtractor(Extractor):
         parent = commit.parents[0] if len(commit.parents) > 0 else None
         diffs = parent.diff(commit) if parent else commit.diff(git.NULL_TREE)
         for diff in diffs:
-            if not diff.a_path.startswith(
-                self.directory
-            ) and not diff.b_path.startswith(self.directory):
+            if not self._should_process_diff(diff):
                 continue  # a commit might contains diffs for files we do not care about
             try:
-                self._process_diff(diff, entries, commit, parent)
+                self._process_diff(diff, commit, parent)
             except ValueError:
                 logger.error("Could not process diff %s (commit=%s)", str(diff), commit)
                 sys.exit(1)
@@ -141,10 +153,12 @@ class FilesExtractor(Extractor):
             change_type = ChangeTypes.ADDED
         return ((blob, old_blob, commit, path, previous_path, change_type),)
 
+    def _save_entry(self, entry: Entry):
+        self.entries.append(entry)
+
     def _process_diff(
         self,
         diff: git.Diff,
-        entries: List[Entry],
         commit: git.Commit,
         parent: git.Commit = None,
     ):
@@ -171,7 +185,20 @@ class FilesExtractor(Extractor):
             return  # we do not care about this diff
 
         for params in self._get_blob_parameters(diff, change_type, commit):
-            entries.append(self._process_blob(*params))
+            self._save_entry(self._process_blob(*params))
+
+    def _save_blob_content(self, blob: git.Blob, path: PathLike) -> str:
+        if blob is None:
+            return ""
+        data = blob.data_stream.read()
+        _hash = hashlib.sha256(data).hexdigest()
+        path = os.path.join(self.save_directory, _hash)
+        if not os.path.exists(path):
+            # if it exists, we already have the workflow
+            # (well, we might have a collision, but it is unlikely)
+            with open(path, "wb") as file:
+                file.write(data)
+        return _hash
 
     def _process_blob(
         self,
@@ -192,19 +219,8 @@ class FilesExtractor(Extractor):
         """
         if blob is None:
             raise ValueError("Blob cannot be None")
-        data = blob.data_stream.read()
-        _hash = hashlib.sha256(data).hexdigest()
-        old_data = old_blob.data_stream.read() if old_blob else None
-        _old_hash = hashlib.sha256(old_data).hexdigest() if old_data is not None else ""
-        for d, h in ((data, _hash), (old_data, _old_hash)):
-            if d is None:
-                continue
-            path = os.path.join(self.save_directory, h)
-            if not os.path.exists(path):
-                # if it exists, we already have the workflow
-                # (well, we might have a collision, but it is unlikely)
-                with open(path, "wb") as file:
-                    file.write(d)
+        _hash = self._save_blob_content(blob, workflow_path)
+        _old_hash = self._save_blob_content(old_blob, previous_workflow_path)
         entry = Entry(
             commit.hexsha,
             commit.author.name,
@@ -222,12 +238,92 @@ class FilesExtractor(Extractor):
         return entry
 
 
-class WorkflowsExtractor(FilesExtractor):
+class PathSeparatorFilesExtractor(FilesExtractor):
+    def __init__(
+        self,
+        repository: git.Repo,
+        directory: PathLike,
+        save_directory: PathLike,
+        separators: List[callable],
+    ) -> None:
+        super().__init__(repository, directory, save_directory)
+        self.separators = separators
+        self.entries = [[] for _ in range(len(self.separators))]
+
+    @lru_cache(maxsize=10)
+    def _get_save_index(self, path: PathLike):
+        for i, sep in enumerate(self.separators):
+            if sep(path):
+                return i
+        return None
+
+    def _save_entry(self, entry: Entry):
+        index = self._get_save_index(entry.file_path)
+        if index is not None:
+            self.entries[index].append(entry)
+
+    def _get_blob_parameters(
+        self, diff: git.Diff, change_type: ChangeTypes, commit
+    ) -> List[tuple]:
+        params = super()._get_blob_parameters(diff, change_type, commit)
+        # param[3] is the path of the blob
+        return [param for param in params if self._get_save_index(param[3]) is not None]
+
+    def _process_blob(
+        self,
+        blob: git.Blob,
+        old_blob: git.Blob,
+        commit: git.Commit,
+        workflow_path: PathLike,
+        previous_workflow_path: PathLike,
+        change_type: ChangeTypes,
+    ) -> Entry:
+        return super()._process_blob(
+            blob, old_blob, commit, workflow_path, previous_workflow_path, change_type
+        )
+
+
+class WorkflowsExtractor(PathSeparatorFilesExtractor):
     """Extract workflows and related Entry from a repository."""
 
     WORKFLOWS_DIRECTORY = ".github/workflows"
 
-    def __init__(self, repository: git.Repo, save_directory: PathLike) -> None:
-        FilesExtractor.__init__(
-            self, repository, self.WORKFLOWS_DIRECTORY, save_directory
+    def __init__(
+        self,
+        repository: git.Repo,
+        save_directory: PathLike,
+        save_auxiliaries: bool = False,
+    ) -> None:
+        separators = [
+            lambda x: not self._is_auxiliary(x),
+        ]
+        if save_auxiliaries:
+            separators.append(lambda _: True)  # save everything
+            # that does not match the first separator
+        PathSeparatorFilesExtractor.__init__(
+            self,
+            repository,
+            self.WORKFLOWS_DIRECTORY,
+            save_directory,
+            separators,
         )
+
+    def _is_auxiliary(self, path: PathLike) -> bool:
+        """Returns True if the path is an auxiliary file, False otherwise.
+
+        Args:
+            path (PathLike): The path to check.
+
+        Returns:
+            bool: True if the path is an auxiliary file, False otherwise.
+        """
+        return False if WORKFLOW_REGEX.match(path) else True
+
+    def get_entries(self):
+        return self.entries[0]
+
+    def get_auxiliary_entries(self):
+        if len(self.entries) > 1:
+            return self.entries[1]
+        else:
+            return None
