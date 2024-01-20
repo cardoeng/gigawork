@@ -1,11 +1,10 @@
 import os
-import subprocess
 import sys
 import logging
 import tempfile
 import click
-from gigawork.param_types import GitReference
 import git
+from .param_types import GitReference
 from .extractors import WorkflowsExtractor
 from .repository import clone_repository, read_repository, update_repository
 from . import utils
@@ -14,7 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # See https://click.palletsprojects.com/en/8.1.x/documentation/#help-texts
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option(
@@ -55,13 +55,6 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
     type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
 )
 @click.option(
-    "--rename-output",
-    "-ro",
-    help="The output CSV file where information related to the renaming of workflows will be stored. "
-    "By default, this informations will not be stored.",
-    type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
-)
-@click.option(
     "--repository-name",
     "-n",
     help="Add a column `repository` to the output file where each value will be equal to the provided parameter.",
@@ -83,7 +76,6 @@ def main(
     after,
     workflows,
     output,
-    rename_output,
     repository_name,
     no_headers,
     repository,
@@ -99,7 +91,7 @@ def main(
     The metadata related to the extracted workflows will be written in the CSV file given to `-o`,
     or in the standard output if not specified. The metadata related to the renaming of workflows
     will be stored in the CSV file given to `-ro`, or not stored if not specified.
-    
+
     Example of usage:
     gigawork myRepository -n myRepositoryName -s directory -o output.csv --no-headers
     """
@@ -132,7 +124,7 @@ def main(
             logger.debug(exception)
 
     extractor = WorkflowsExtractor(repo, workflows)
-    entries, rename_entries = extractor.extract(ref, after)
+    entries = extractor.extract(ref, after)
 
     if len(entries) > 0:
         if output:
@@ -145,18 +137,9 @@ def main(
                 )
         else:
             utils.write_csv(
-                entries, sys.stdout, entries[0].__class__, not no_headers, repository_name
-            )
-
-    if rename_output and len(rename_entries) > 0:
-        parent = os.path.dirname(rename_output)
-        if parent != "":
-            os.makedirs(parent, exist_ok=True)
-        with open(rename_output, "a", encoding="utf-8") as file:
-            utils.write_csv(
-                rename_entries,
-                file,
-                rename_entries[0].__class__,
+                entries,
+                sys.stdout,
+                entries[0].__class__,
                 not no_headers,
                 repository_name,
             )

@@ -28,23 +28,13 @@ class Entry(NamedTuple):
     committed_date: str
     authored_date: str
     file_path: str
+    previous_file_path: str
     file_hash: str
     previous_file_hash: str
     change_type: str
 
 
-class RenameEntry(NamedTuple):
-    """A single entry in the rename dataset."""
-
-    commit: str
-    old_name: str
-    new_name: str
-
-
 RepositoryEntry = namedtuple("RepositoryEntry", ("repository",) + Entry._fields)
-RepositoryRenameEntry = namedtuple(
-    "RepositoryRenameEntry", ("repository",) + RenameEntry._fields
-)
 
 
 class Extractor(ABC):
@@ -74,25 +64,21 @@ class FilesExtractor(Extractor):
         if self.save_directory != "":
             os.makedirs(self.save_directory, exist_ok=True)
 
-    def extract(
-        self, ref="HEAD", after=None, *args, **kwargs
-    ) -> tuple[List[Entry], List[RenameEntry]]:
+    def extract(self, ref="HEAD", after=None, *args, **kwargs) -> List[Entry]:
         entries = []
-        rename_entries = []
         if after is not None:
             ref = f"{after}..{ref}"
         # iter parents until `after` if given
         for commit in self.repository.iter_commits(
             ref, self.directory, **{"first-parent": True}
         ):
-            self._extract_files(commit, entries, rename_entries)
-        return entries, rename_entries
+            self._extract_files(commit, entries)
+        return entries
 
     def _extract_files(
         self,
         commit: git.Commit,
         entries: List[Entry],
-        rename_entries: List[RenameEntry],
     ):
         """Extract the workflows from the given commit.
 
@@ -102,8 +88,6 @@ class FilesExtractor(Extractor):
             If None, compare to the first commit of the repository.
             directory (PathLike): The directory to consider.
             entries (List[Entry]): The list of entries representing the dataset.
-            rename_entries (List[RenameEntry]): The list of rename entries representing the
-            renaming entries of the dataset.
         """
         # we compare the parent commit to the current commit
         # The order of the diff is important, because we want to know
@@ -120,7 +104,7 @@ class FilesExtractor(Extractor):
             ) and not diff.b_path.startswith(self.directory):
                 continue  # a commit might contains diffs for files we do not care about
             try:
-                self._process_diff(diff, entries, rename_entries, commit, parent)
+                self._process_diff(diff, entries, commit, parent)
             except ValueError:
                 logger.error("Could not process diff %s (commit=%s)", str(diff), commit)
                 sys.exit(1)
@@ -139,25 +123,28 @@ class FilesExtractor(Extractor):
             List[tuple]: The parameters to process a blob.
         """
         if change_type == ChangeTypes.RENAMED:
-            return (
-                *self._get_blob_parameters(diff, ChangeTypes.DELETED, commit),
-                *self._get_blob_parameters(diff, ChangeTypes.ADDED, commit),
-            )
+            # we consider the file was modified in a case of rename (the previous path allows
+            # to detect the renaming)
+            change_type = ChangeTypes.MODIFIED
         if change_type == ChangeTypes.DELETED:
-            blob, old_blob, path = diff.a_blob, None, diff.a_path
+            blob, old_blob, path, previous_path = diff.a_blob, None, diff.a_path, None
         elif change_type == ChangeTypes.ADDED:
-            blob, old_blob, path = diff.b_blob, None, diff.b_path
+            blob, old_blob, path, previous_path = diff.b_blob, None, diff.b_path, None
         else:
-            blob, old_blob, path = diff.b_blob, diff.a_blob, diff.b_path
+            blob, old_blob, path, previous_path = (
+                diff.b_blob,
+                diff.a_blob,
+                diff.b_path,
+                diff.a_path,
+            )
         if len(commit.parents) == 0:
             change_type = ChangeTypes.ADDED
-        return ((blob, old_blob, commit, path, change_type),)
+        return ((blob, old_blob, commit, path, previous_path, change_type),)
 
     def _process_diff(
         self,
         diff: git.Diff,
         entries: List[Entry],
-        rename_entries: List[RenameEntry],
         commit: git.Commit,
         parent: git.Commit = None,
     ):
@@ -166,8 +153,6 @@ class FilesExtractor(Extractor):
         Args:
             diff (git.Diff): The diff to process.
             entries (List[Entry]): The list of entries representing the dataset.
-            rename_entries (List[RenameEntry]): The list of rename entries representing the
-            renaming entries of the dataset.
             commit (git.Commit): The commit to which the diff belongs.
             parent (git.Commit, optional): The parent of the commit (if None, will try
             to get it automatically). Defaults to None.
@@ -185,9 +170,6 @@ class FilesExtractor(Extractor):
             )
             return  # we do not care about this diff
 
-        if change_type == ChangeTypes.RENAMED:
-            rename_entry = RenameEntry(commit, diff.a_path, diff.b_path)
-            rename_entries.append(rename_entry)
         for params in self._get_blob_parameters(diff, change_type, commit):
             entries.append(self._process_blob(*params))
 
@@ -197,6 +179,7 @@ class FilesExtractor(Extractor):
         old_blob: git.Blob,
         commit: git.Commit,
         workflow_path: PathLike,
+        previous_workflow_path: PathLike,
         change_type: ChangeTypes,
     ) -> Entry:
         """Process a blob to extract the workflow content.
@@ -231,6 +214,7 @@ class FilesExtractor(Extractor):
             commit.committed_date,
             commit.authored_date,
             workflow_path,
+            previous_workflow_path,
             _hash,
             _old_hash,
             change_type.value,
