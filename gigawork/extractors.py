@@ -62,6 +62,13 @@ class FilesExtractor(Extractor):
     def __init__(
         self, repository: git.Repo, directory: PathLike, save_directory: PathLike
     ) -> None:
+        """Init
+
+        Args:
+            repository (git.Repo): The Git repository.
+            directory (PathLike): The directory in the Git repository to consider.
+            save_directory (PathLike): The directory under which the extracted files will be saved.
+        """
         super().__init__(repository)
         self.save_directory = save_directory
         self.directory = directory
@@ -188,6 +195,16 @@ class FilesExtractor(Extractor):
             self._save_entry(self._process_blob(*params))
 
     def _save_blob_content(self, blob: git.Blob, path: PathLike) -> str:
+        """
+        Save the content of a git blob to a file.
+
+        Args:
+            blob (git.Blob): The git blob object.
+            path (PathLike): The directory where the file will be saved.
+
+        Returns:
+            str: The name under which the file was saved.
+        """
         if blob is None:
             return ""
         data = blob.data_stream.read()
@@ -246,18 +263,42 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         save_directory: PathLike,
         separators: List[callable],
     ) -> None:
+        """
+        Init
+
+        Args:
+            repository (git.Repo): The Git repository.
+            directory (PathLike): The directory in the Git repository to consider.
+            save_directory (PathLike): The directory under which the extracted files will be saved.
+            separators (List[callable]): A list of callables representing the separators.
+        """
         super().__init__(repository, directory, save_directory)
         self.separators = separators
         self.entries = [[] for _ in range(len(self.separators))]
 
     @lru_cache(maxsize=10)
     def _get_save_index(self, path: PathLike):
+        """
+        Returns the index of the separator that matches the given path.
+
+        Args:
+            path (PathLike): The path to check.
+
+        Returns:
+            int: The index of the matching separator, or None if no separator matches.
+        """
         for i, sep in enumerate(self.separators):
             if sep(path):
                 return i
         return None
 
     def _save_entry(self, entry: Entry):
+        """
+        Saves the entry based on the separator index.
+
+        Args:
+            entry (Entry): The entry to save.
+        """
         index = self._get_save_index(entry.file_path)
         if index is not None:
             self.entries[index].append(entry)
@@ -268,19 +309,6 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         params = super()._get_blob_parameters(diff, change_type, commit)
         # param[3] is the path of the blob
         return [param for param in params if self._get_save_index(param[3]) is not None]
-
-    def _process_blob(
-        self,
-        blob: git.Blob,
-        old_blob: git.Blob,
-        commit: git.Commit,
-        workflow_path: PathLike,
-        previous_workflow_path: PathLike,
-        change_type: ChangeTypes,
-    ) -> Entry:
-        return super()._process_blob(
-            blob, old_blob, commit, workflow_path, previous_workflow_path, change_type
-        )
 
 
 class WorkflowsExtractor(PathSeparatorFilesExtractor):
@@ -319,10 +347,20 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         """
         return False if WORKFLOW_REGEX.match(path) else True
 
-    def get_entries(self):
+    def get_entries(self) -> List[Entry]:
+        """Returns the entries.
+
+        Returns:
+            List[Entry]: The entries.
+        """
         return self.entries[0]
 
-    def get_auxiliary_entries(self):
+    def get_auxiliary_entries(self) -> List[Entry]:
+        """Returns the auxiliary entries.
+
+        Returns:
+            List[Entry]: The auxiliary entries.
+        """
         if len(self.entries) > 1:
             return self.entries[1]
         else:
