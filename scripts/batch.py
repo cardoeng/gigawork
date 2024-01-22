@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--output-directory",
     "-o",
-    help="The directory where the extracted GitHub Actions workflow files will be stored.",
+    help="The directory where the extracted metadata will be stored.",
     default="outputs",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
@@ -70,8 +70,10 @@ def batch(directory, error_directory, output_directory, options):
             os.path.join(output_directory, "output", os.path.basename(repo) + ".csv"),
             "--repository-name",
             os.path.basename(repo),
-            "--rename-output",
-            os.path.join(output_directory, "rename", os.path.basename(repo) + ".csv"),
+            "--auxiliary-output",
+            os.path.join(
+                output_directory, "auxiliary", os.path.basename(repo) + ".csv"
+            ),
         )
         args = (*default_args, *options, repo)
         sproc = subprocess.Popen(
