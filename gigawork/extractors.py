@@ -18,7 +18,7 @@ from .change_types import ChangeTypes
 
 logger = logging.getLogger(__name__)
 
-WORKFLOW_REGEX = re.compile("^.github/workflows/[^/]*\.(yml|yaml)$")
+WORKFLOW_REGEX = re.compile(r"^\.github/workflows/[^/]*\.(yml|yaml)$")
 
 
 class Entry(NamedTuple):
