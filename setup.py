@@ -11,7 +11,7 @@ with open(
 
 setup(
     name=NAME,
-    version="1.1.0",
+    version="1.2.0",
     license="LGPLv3",
     author="Guillaume Cardoen",
     url="https://github.com/cardoeng/gigawork",
@@ -38,7 +38,7 @@ setup(
     python_requires="~= 3.8",
     install_requires=[
         "click ~= 8.1.7",
-        "GitPython ~= 3.1.37",
+        "GitPython ~= 3.1.41",
     ],
     zip_safe=True,
     entry_points={"console_scripts": [f"{NAME}={NAME}.main:main"]},
