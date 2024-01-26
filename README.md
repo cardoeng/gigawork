@@ -73,14 +73,15 @@ Options:
                                   related to the dataset will be stored. By
                                   default, the information will written to the
                                   standard output.
-  -ro, --rename-output FILE       The output CSV file where information
-                                  related to the renaming of workflows will be
-                                  stored. By default, this informations will
-                                  not be stored.
+  -ao, --auxiliary-output FILE    The output CSV file where information
+                                  related to the auxiliary files will be
+                                  stored. By default, the information will not
+                                  be stored.
   -n, --repository-name TEXT      Add a column `repository` to the output file
                                   where each value will be equal to the
                                   provided parameter.
-  --no-headers                    Create a header row for the CSV output file.
+  --no-headers                    Remove the header row from the CSV output
+                                  file.
   -h, --help                      Show this message and exit.
 ```
 
@@ -94,30 +95,24 @@ The CSV file given to `-o` (or that will be written to the standard output by de
 - `committed_date`: the committed date of the commit
 - `authored_date`: the authored date of the commit
 - `file_path`: the path of the workflow file in the repository
+- `previous_file_path`: The path to this file before it has been touched
 - `file_hash`: the SHA of the workflow file (and so, its name in the output directory)
-- `change_type`: the type of change (A for added, M for modified, D for deleted). Note that a renamed file will be seen as a deletion and an addition due to Git allowing modifications while renaming a file.
-
-The CSV file given to `-ro` will contain the following columns:
-- `repository`: the name of the repository if `-n` was specified
-- `commit`: the commit SHA of the commit where the renaming happened
-- `old_name`: the old name of the workflow file
-- `new_name`: the new name of the workflow file
+- `previous_file_hash`: The name of the related workflow file in the dataset, before it has been touched
+- `change_type`: the type of change (A for added, M for modified, D for deleted). Note that a renamed file will be seen as a modification.
 
 ### Examples
 
 As an example, the following command extracts every workflow files from the repository `example_repository`, add the name `my-example-name` in the output. It also saves various information (such as commit SHA, author name, ...) in `output.csv` (with the headers as `--no-headers` is not specified). Each workflow file will be saved in the directory `workflows` (which is also the default save directory).
 
 ```bash
-gigawork example_repository -n my-example-name -o output.csv -w workflows -ro rename_output.csv
+gigawork example_repository -n my-example-name -o output.csv -w workflows
 ```
 
 Note that the repository does not have to be already cloned. The tool can fetch it for you and clean up (unless told otherwise) when the work is done. An example is shown below. The GitHub repository `https://github.com/cardoeng/gigawork` will be fetched, saved under the `gigawork` directory and the `repository` column will be `gigawork_name` in the resulting CSV file. Note that, if `-s gigawork` was not specified, the tool will create a temporary directory and clean up when it finishes.
 
 ```bash
-gigawork https://github.com/cardoeng/gigawork -n gigawork_name -s gigawork -o output.csv -ro rename_output.csv
+gigawork https://github.com/cardoeng/gigawork -n gigawork_name -s gigawork -o output.csv
 ```
-
-In our case, the repository `gigawork` has no renaming in its Git history. Therefore, `rename_output.csv` will not be created.
 
 ## License
 
