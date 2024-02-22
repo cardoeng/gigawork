@@ -1,11 +1,25 @@
 import csv
 from io import TextIOWrapper
-from typing import Iterable, List
-from .extractors import Entry, RepositoryEntry
+from typing import Iterable
+
+from typing import Union
+from ruamel.yaml import YAML, RoundTripRepresenter, SafeConstructor
+
+
+class NoSortingRepresenter(RoundTripRepresenter):
+    pass
+
+
+class TreeConstructor(SafeConstructor):
+    def get_single_data(self):
+        # Returns the tree and not the constructed document
+        # Allow to not construct the document at all
+        # See "constructor.py" in ruamel.yaml (method get_single_data)
+        return self.composer.get_single_node()
 
 
 def write_csv(
-    entries: Iterable[Entry],
+    entries: Iterable,
     file: TextIOWrapper,
     entry_class,
     headers: bool = False,
@@ -30,3 +44,41 @@ def write_csv(
             h.insert(0, "repository")
         writer.writerow(h)
     writer.writerows(entries)
+
+
+def get_yaml_object(sort_keys=False) -> YAML:
+    """Get a yaml object with the given parameters.
+
+    Args:
+        sort_keys (bool, optional): If the keys should be sorted.
+        Defaults to False.
+
+    Returns:
+        YAML: The yaml object.
+    """
+    yaml = YAML(typ=["safe", "string"])
+    if not sort_keys:
+        yaml.Representer = NoSortingRepresenter
+    yaml.default_flow_style = False
+    yaml.allow_unicode = True
+    yaml.allow_duplicate_keys = True
+    yaml.width = 1e8  # Disable line wrapping
+    return yaml
+
+
+def read_yaml(data, sort_keys=False) -> Union[dict, list, str, int]:
+    """
+    Read a yaml file and return the corresponding object.
+
+    Args:
+        data (str): The yaml data.
+        sort_keys (bool, optional): If the keys should be sorted.
+        Defaults to False.
+
+    Returns:
+        Union[dict, list, str, int]: The corresponding object.
+    """
+    yaml = get_yaml_object(sort_keys=sort_keys)
+
+    data_dict = yaml.load(data)
+    return data_dict

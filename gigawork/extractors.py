@@ -11,14 +11,13 @@ from os import PathLike
 import os
 import re
 import sys
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Tuple
 import git
 
 from .change_types import ChangeTypes
+from .workflow_recognition import is_valid_workflow, is_workflow_directory
 
 logger = logging.getLogger(__name__)
-
-WORKFLOW_REGEX = re.compile(r"^\.github/workflows/[^/]*\.(yml|yaml)$")
 
 
 class Entry(NamedTuple):
@@ -36,6 +35,9 @@ class Entry(NamedTuple):
     file_hash: str
     previous_file_hash: str
     change_type: str
+    valid_yaml: bool
+    probably_workflow: bool
+    valid_workflow: bool
 
 
 RepositoryEntry = namedtuple("RepositoryEntry", ("repository",) + Entry._fields)
@@ -194,7 +196,7 @@ class FilesExtractor(Extractor):
         for params in self._get_blob_parameters(diff, change_type, commit):
             self._save_entry(self._process_blob(*params))
 
-    def _save_blob_content(self, blob: git.Blob, path: PathLike) -> str:
+    def _get_blob_content(self, blob: git.Blob, path: PathLike) -> Tuple[str, str]:
         """
         Save the content of a git blob to a file.
 
@@ -206,7 +208,7 @@ class FilesExtractor(Extractor):
             str: The name under which the file was saved.
         """
         if blob is None:
-            return ""
+            return "", ""
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
         path = os.path.join(self.save_directory, _hash)
@@ -215,7 +217,7 @@ class FilesExtractor(Extractor):
             # (well, we might have a collision, but it is unlikely)
             with open(path, "wb") as file:
                 file.write(data)
-        return _hash
+        return data.decode(), _hash
 
     def _process_blob(
         self,
@@ -236,8 +238,9 @@ class FilesExtractor(Extractor):
         """
         if blob is None:
             raise ValueError("Blob cannot be None")
-        _hash = self._save_blob_content(blob, workflow_path)
-        _old_hash = self._save_blob_content(old_blob, previous_workflow_path)
+        data, _hash = self._get_blob_content(blob, workflow_path)
+        _, _old_hash = self._get_blob_content(old_blob, previous_workflow_path)
+        is_yaml, is_probable, is_workflow = is_valid_workflow(data)
         entry = Entry(
             commit.hexsha,
             commit.author.name,
@@ -251,6 +254,9 @@ class FilesExtractor(Extractor):
             _hash,
             _old_hash,
             change_type.value,
+            is_yaml,
+            is_probable,
+            is_workflow,
         )
         return entry
 
@@ -271,24 +277,28 @@ class PathSeparatorFilesExtractor(FilesExtractor):
             directory (PathLike): The directory in the Git repository to consider.
             save_directory (PathLike): The directory under which the extracted files will be saved.
             separators (List[callable]): A list of callables representing the separators.
+            The separators should be ordered by priority. The separators should represent
+            every possible case. Otherwise, the file will be extracted, but not entry will
+            be saved.
         """
+        # TODO: do not save the file if no separator matches
         super().__init__(repository, directory, save_directory)
         self.separators = separators
         self.entries = [[] for _ in range(len(self.separators))]
 
     @lru_cache(maxsize=10)
-    def _get_save_index(self, path: PathLike):
+    def _get_save_index(self, entry: Entry) -> int:
         """
         Returns the index of the separator that matches the given path.
 
         Args:
-            path (PathLike): The path to check.
+            entry (Entry): The entry to match.
 
         Returns:
             int: The index of the matching separator, or None if no separator matches.
         """
         for i, sep in enumerate(self.separators):
-            if sep(path):
+            if sep(entry):
                 return i
         return None
 
@@ -299,16 +309,9 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         Args:
             entry (Entry): The entry to save.
         """
-        index = self._get_save_index(entry.file_path)
+        index = self._get_save_index(entry)
         if index is not None:
             self.entries[index].append(entry)
-
-    def _get_blob_parameters(
-        self, diff: git.Diff, change_type: ChangeTypes, commit
-    ) -> List[tuple]:
-        params = super()._get_blob_parameters(diff, change_type, commit)
-        # param[3] is the path of the blob
-        return [param for param in params if self._get_save_index(param[3]) is not None]
 
 
 class WorkflowsExtractor(PathSeparatorFilesExtractor):
@@ -336,16 +339,16 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
             separators,
         )
 
-    def _is_auxiliary(self, path: PathLike) -> bool:
+    def _is_auxiliary(self, entry: Entry) -> bool:
         """Returns True if the path is an auxiliary file, False otherwise.
 
         Args:
-            path (PathLike): The path to check.
+            entry (Entry): The entry to check.
 
         Returns:
             bool: True if the path is an auxiliary file, False otherwise.
         """
-        return False if WORKFLOW_REGEX.match(path) else True
+        return is_workflow_directory(entry.file_path)
 
     def get_entries(self) -> List[Entry]:
         """Returns the entries.
