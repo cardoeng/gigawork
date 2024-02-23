@@ -39,6 +39,8 @@ setup(
     install_requires=[
         "click ~= 8.1.7",
         "GitPython ~= 3.1.41",
+        "jsonschema ~= 4.21.0",
+        "ruamel.yaml ~= 0.17.40",
     ],
     zip_safe=True,
     entry_points={"console_scripts": [f"{NAME}={NAME}.main:main"]},
