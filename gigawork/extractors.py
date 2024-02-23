@@ -9,7 +9,6 @@ import hashlib
 import logging
 from os import PathLike
 import os
-import re
 import sys
 from typing import List, NamedTuple, Tuple
 import git
@@ -70,11 +69,12 @@ class FilesExtractor(Extractor):
             repository (git.Repo): The Git repository.
             directory (PathLike): The directory in the Git repository to consider.
             save_directory (PathLike): The directory under which the extracted files will be saved.
+            None if the files should not be saved.
         """
         super().__init__(repository)
         self.save_directory = save_directory
         self.directory = directory
-        if self.save_directory != "":
+        if self.save_directory is not None and self.save_directory != "":
             os.makedirs(self.save_directory, exist_ok=True)
         self.entries = []
 
@@ -196,28 +196,44 @@ class FilesExtractor(Extractor):
         for params in self._get_blob_parameters(diff, change_type, commit):
             self._save_entry(self._process_blob(*params))
 
-    def _get_blob_content(self, blob: git.Blob, path: PathLike) -> Tuple[str, str]:
+    def _get_blob_content(self, blob: git.Blob) -> Tuple[str, str]:
         """
         Save the content of a git blob to a file.
 
         Args:
             blob (git.Blob): The git blob object.
-            path (PathLike): The directory where the file will be saved.
 
         Returns:
             str: The name under which the file was saved.
         """
         if blob is None:
-            return "", ""
+            return None, None
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
-        path = os.path.join(self.save_directory, _hash)
-        if not os.path.exists(path):
-            # if it exists, we already have the workflow
-            # (well, we might have a collision, but it is unlikely)
-            with open(path, "wb") as file:
-                file.write(data)
-        return data.decode(), _hash
+        return data, _hash
+    
+    def _save_content(self, data: bytes, old_data: bytes, entry: Entry) -> str:
+        """
+        Save the content of a git blob to a file.
+
+        Args:
+            data (bytes): The data to save.
+            path (PathLike): The directory where the file will be saved.
+
+        Returns:
+            str: The name under which the file was saved.
+        """
+        if self.save_directory is None:
+            return
+        for (d, h) in [(data, entry.file_hash), (old_data, entry.previous_file_hash)]:
+            if d is None:
+                continue
+            path = os.path.join(self.save_directory, h)
+            if not os.path.exists(path):
+                # if it exists, we already have the workflow
+                # (well, we might have a collision, but it is unlikely)
+                with open(path, "wb") as file:
+                    file.write(d)
 
     def _process_blob(
         self,
@@ -238,9 +254,9 @@ class FilesExtractor(Extractor):
         """
         if blob is None:
             raise ValueError("Blob cannot be None")
-        data, _hash = self._get_blob_content(blob, workflow_path)
-        _, _old_hash = self._get_blob_content(old_blob, previous_workflow_path)
-        is_yaml, is_probable, is_workflow = is_valid_workflow(data)
+        data, _hash = self._get_blob_content(blob)
+        old_data, _old_hash = self._get_blob_content(old_blob)
+        is_yaml, is_probable, is_workflow = is_valid_workflow(data.decode())
         entry = Entry(
             commit.hexsha,
             commit.author.name,
@@ -258,6 +274,7 @@ class FilesExtractor(Extractor):
             is_probable,
             is_workflow,
         )
+        self._save_content(data, old_data, entry)
         return entry
 
 
@@ -266,7 +283,7 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         self,
         repository: git.Repo,
         directory: PathLike,
-        save_directory: PathLike,
+        save_directories: List[PathLike],
         separators: List[callable],
     ) -> None:
         """
@@ -275,14 +292,15 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         Args:
             repository (git.Repo): The Git repository.
             directory (PathLike): The directory in the Git repository to consider.
-            save_directory (PathLike): The directory under which the extracted files will be saved.
+            save_directories (PathLike): The directory under which the extracted files will be saved.
             separators (List[callable]): A list of callables representing the separators.
             The separators should be ordered by priority. The separators should represent
             every possible case. Otherwise, the file will be extracted, but not entry will
             be saved.
         """
-        # TODO: do not save the file if no separator matches
-        super().__init__(repository, directory, save_directory)
+        # the file should be saved, but we decide where
+        super().__init__(repository, directory, None)
+        self.save_directories = save_directories
         self.separators = separators
         self.entries = [[] for _ in range(len(self.separators))]
 
@@ -312,6 +330,24 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         index = self._get_save_index(entry)
         if index is not None:
             self.entries[index].append(entry)
+            
+    def _save_content(self, data: bytes, old_data: bytes, entry: Entry) -> str:
+        i = self._get_save_index(entry)
+        if i is None:
+            return
+        sd = self.save_directories[i]
+        if sd is None:
+            return
+                
+        for (d, h) in [(data, entry.file_hash), (old_data, entry.previous_file_hash)]:
+            if d is None:
+                continue
+            path = os.path.join(sd, h)
+            if not os.path.exists(path):
+                # if it exists, we already have the workflow
+                # (well, we might have a collision, but it is unlikely)
+                with open(path, "wb") as file:
+                    file.write(d)
 
 
 class WorkflowsExtractor(PathSeparatorFilesExtractor):
@@ -324,18 +360,23 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         repository: git.Repo,
         save_directory: PathLike,
         save_auxiliaries: bool = False,
+        auxiliary_save_directory: PathLike = None,
     ) -> None:
+        if auxiliary_save_directory is None:
+            auxiliary_save_directory = save_directory
         separators = [
             lambda x: not self._is_auxiliary(x),
         ]
+        save_directories = [save_directory]
         if save_auxiliaries:
             separators.append(lambda _: True)  # save everything
             # that does not match the first separator
+            save_directories.append(auxiliary_save_directory)
         PathSeparatorFilesExtractor.__init__(
             self,
             repository,
             self.WORKFLOWS_DIRECTORY,
-            save_directory,
+            save_directories,
             separators,
         )
 

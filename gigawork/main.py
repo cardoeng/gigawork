@@ -132,7 +132,7 @@ def main(
             )
             logger.debug(exception)
 
-    extractor = WorkflowsExtractor(repo, workflows, auxiliary_output is not None)
+    extractor = WorkflowsExtractor(repo, workflows, save_auxiliaries=auxiliary_output is not None)
     extractor.extract(ref, after)
     entries = extractor.get_entries()
 
