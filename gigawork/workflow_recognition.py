@@ -30,8 +30,14 @@ def _is_valid_workflow(content) -> Tuple[bool, bool]:
 
 
 def is_valid_workflow(content) -> Tuple[bool, bool, bool]:
-    is_probable = _is_probable_workflow(content)
-    is_yaml, is_workflow = _is_valid_workflow(content)
+    try:
+        is_probable = _is_probable_workflow(content)
+    except Exception:
+        is_probable = False
+    try:
+        is_yaml, is_workflow = _is_valid_workflow(content)
+    except Exception:
+        is_yaml, is_workflow = False, False
     return is_yaml, is_probable, is_workflow
 
 

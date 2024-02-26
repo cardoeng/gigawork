@@ -126,8 +126,13 @@ class FilesExtractor(Extractor):
                 continue  # a commit might contains diffs for files we do not care about
             try:
                 self._process_diff(diff, commit, parent)
-            except ValueError:
-                logger.error("Could not process diff %s (commit=%s)", str(diff), commit)
+            except ValueError as e:
+                logger.error(
+                    "Could not process diff %s (commit=%s)",
+                    str(diff),
+                    commit,
+                    exc_info=True,
+                )
                 sys.exit(1)
 
     def _get_blob_parameters(
@@ -184,8 +189,8 @@ class FilesExtractor(Extractor):
             parent = commit.parents[0] if len(commit.parents) > 0 else None
         try:
             change_type = ChangeTypes(diff.change_type)
-        except ValueError:
-            logger.debug(
+        except ValueError as e:
+            logger.e(
                 "Could not process diff %s (commit=%s, change_type=%s)",
                 str(diff),
                 commit,
@@ -211,7 +216,7 @@ class FilesExtractor(Extractor):
         data = blob.data_stream.read()
         _hash = hashlib.sha256(data).hexdigest()
         return data, _hash
-    
+
     def _save_content(self, data: bytes, old_data: bytes, entry: Entry) -> str:
         """
         Save the content of a git blob to a file.
@@ -256,7 +261,18 @@ class FilesExtractor(Extractor):
             raise ValueError("Blob cannot be None")
         data, _hash = self._get_blob_content(blob)
         old_data, _old_hash = self._get_blob_content(old_blob)
-        is_yaml, is_probable, is_workflow = is_valid_workflow(data.decode())
+        try:
+            s = data.decode()
+            is_yaml, is_probable, is_workflow = is_valid_workflow(s)
+        except Exception as e:
+            logger.warning(
+                "Could not decode or validate workflow for %s (commit=%s, change_type=%s)",
+                workflow_path,
+                commit,
+                change_type,
+                exc_info=True,
+            )
+            is_yaml, is_probable, is_workflow = False, False, False
         entry = Entry(
             commit.hexsha,
             commit.author.name,
@@ -330,7 +346,7 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         index = self._get_save_index(entry)
         if index is not None:
             self.entries[index].append(entry)
-            
+
     def _save_content(self, data: bytes, old_data: bytes, entry: Entry) -> str:
         i = self._get_save_index(entry)
         if i is None:
@@ -338,7 +354,7 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         sd = self.save_directories[i]
         if sd is None:
             return
-                
+
         for (d, h) in [(data, entry.file_hash), (old_data, entry.previous_file_hash)]:
             if d is None:
                 continue
