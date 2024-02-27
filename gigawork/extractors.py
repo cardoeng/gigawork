@@ -315,6 +315,9 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         # the file should be saved, but we decide where
         super().__init__(repository, directory, None)
         self.save_directories = save_directories
+        for sd in self.save_directories:
+            if sd is not None:
+                os.makedirs(sd, exist_ok=True)
         self.separators = separators
         self.entries = [[] for _ in range(len(self.separators))]
 
