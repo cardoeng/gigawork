@@ -148,10 +148,6 @@ class FilesExtractor(Extractor):
         Returns:
             List[tuple]: The parameters to process a blob.
         """
-        if change_type == ChangeTypes.RENAMED:
-            # we consider the file was modified in a case of rename (the previous path allows
-            # to detect the renaming)
-            change_type = ChangeTypes.MODIFIED
         if change_type == ChangeTypes.DELETED:
             blob, old_blob, path, previous_path = diff.a_blob, None, diff.a_path, None
         elif change_type == ChangeTypes.ADDED:
@@ -273,6 +269,8 @@ class FilesExtractor(Extractor):
                 exc_info=True,
             )
             is_yaml, is_probable, is_workflow = False, False, False
+        if change_type == ChangeTypes.RENAMED and _hash != _old_hash:
+            change_type = ChangeTypes.MODIFIED
         entry = Entry(
             commit.hexsha,
             commit.author.name,
