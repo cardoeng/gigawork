@@ -186,7 +186,7 @@ class FilesExtractor(Extractor):
         try:
             change_type = ChangeTypes(diff.change_type)
         except ValueError as e:
-            logger.e(
+            logger.error(
                 "Could not process diff %s (commit=%s, change_type=%s)",
                 str(diff),
                 commit,
@@ -406,7 +406,9 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         Returns:
             bool: True if the path is an auxiliary file, False otherwise.
         """
-        return is_workflow_directory(entry.file_path)
+        return is_workflow_directory(entry.file_path) and (
+            entry.valid_workflow or entry.probably_workflow
+        )
 
     def get_entries(self) -> List[Entry]:
         """Returns the entries.
