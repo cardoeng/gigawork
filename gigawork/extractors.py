@@ -148,8 +148,9 @@ class FilesExtractor(Extractor):
         Returns:
             List[tuple]: The parameters to process a blob.
         """
+        # separated as both path is not None in case of deletion and addition
         if change_type == ChangeTypes.DELETED:
-            blob, old_blob, path, previous_path = diff.a_blob, None, diff.a_path, None
+            blob, old_blob, path, previous_path = None, diff.a_blob, None, diff.a_path
         elif change_type == ChangeTypes.ADDED:
             blob, old_blob, path, previous_path = diff.b_blob, None, diff.b_path, None
         else:
@@ -253,12 +254,13 @@ class FilesExtractor(Extractor):
         Returns:
             str: The hash of the workflow content. (Its name in the save_directory)
         """
-        if blob is None:
-            raise ValueError("Blob cannot be None")
         data, _hash = self._get_blob_content(blob)
         old_data, _old_hash = self._get_blob_content(old_blob)
         try:
-            s = data.decode()
+            if data is None:  # deleted file
+                s = old_data.decode()
+            else:
+                s = data.decode()
             is_yaml, is_probable, is_workflow = is_valid_workflow(s)
         except Exception as e:
             logger.warning(
@@ -406,8 +408,10 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         Returns:
             bool: True if the path is an auxiliary file, False otherwise.
         """
-        return is_workflow_directory(entry.file_path) and (
-            entry.valid_workflow or entry.probably_workflow
+        p = entry.file_path if entry.file_path is not None else entry.previous_file_path
+        return not (
+            is_workflow_directory(p)
+            and (entry.valid_workflow or entry.probably_workflow)
         )
 
     def get_entries(self) -> List[Entry]:

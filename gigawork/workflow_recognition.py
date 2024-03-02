@@ -42,4 +42,4 @@ def is_valid_workflow(content) -> Tuple[bool, bool, bool]:
 
 
 def is_workflow_directory(path):
-    return False if WORKFLOW_REGEX.match(path) else True
+    return True if WORKFLOW_REGEX.match(path) else False
