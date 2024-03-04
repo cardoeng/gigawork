@@ -4,20 +4,38 @@ from jsonschema import validate
 from .utils import read_yaml
 
 WORKFLOW_REGEX = re.compile(r"^\.github/workflows/[^/]*\.(yml|yaml)$")
+KEY_PRESENT = r"[\"']?%s[\"']?\s*:"
 with open("github-workflow.json", "r") as f:
     SCHEMA = read_yaml(f.read())
 
 
 def _is_probable_workflow(content):
-    ON_KEY_PRESENT = r"^on:"
-    JOBS_KEY_PRESENT = r"^jobs:\s*(#.*)?$"
-    for key in [ON_KEY_PRESENT, JOBS_KEY_PRESENT]:
-        if not re.search(key, content, re.MULTILINE):
+    """Check if the content is probably a workflow file
+    (i.e. it contains the `on` and `jobs` keys.)
+
+    Args:
+        content (str): The content of the file
+
+    Returns:
+        bool: Whether the file is probably a workflow file
+    """
+    # there are a lot of things allowed by the workflow syntax
+    # spaces, comments, quotes, etc.
+    for key in ["on", "jobs"]:
+        if re.search(KEY_PRESENT % key, content, re.MULTILINE) is None:
             return False
     return True
 
 
 def _is_valid_workflow(content) -> Tuple[bool, bool]:
+    """Check if the content is a valid workflow file
+
+    Args:
+        content (str): The content of the file
+
+    Returns:
+        Tuple[bool, bool]: Whether the file is valid YAML and a valid workflow file
+    """
     try:
         data = read_yaml(content)
         try:
@@ -30,6 +48,15 @@ def _is_valid_workflow(content) -> Tuple[bool, bool]:
 
 
 def is_valid_workflow(content) -> Tuple[bool, bool, bool]:
+    """Check if the content is a valid workflow file.
+
+    Args:
+        content (str): The content of the file
+
+    Returns:
+        Tuple[bool, bool, bool]: Whether the file is valid YAML,
+        probably a workflow file, and a valid workflow files
+    """
     try:
         is_probable = _is_probable_workflow(content)
     except Exception:
