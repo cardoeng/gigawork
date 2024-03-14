@@ -1,12 +1,14 @@
 import re
 from typing import Tuple
+from importlib.resources import files
 from jsonschema import validate
 from .utils import read_yaml
 
 WORKFLOW_REGEX = re.compile(r"^\.github/workflows/[^/]*\.(yml|yaml)$")
 KEY_PRESENT = r"[\"']?%s[\"']?\s*:"
-with open("github-workflow.json", "r") as f:
-    SCHEMA = read_yaml(f.read())
+
+schema_text = files("gigawork").joinpath("github-workflow.json").read_text()
+SCHEMA = read_yaml(schema_text)
 
 
 def _is_probable_workflow(content):
@@ -69,4 +71,4 @@ def is_valid_workflow(content) -> Tuple[bool, bool, bool]:
 
 
 def is_workflow_directory(path):
-    return True if WORKFLOW_REGEX.match(path) else False
+    return bool(WORKFLOW_REGEX.match(path))

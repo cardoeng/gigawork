@@ -44,4 +44,5 @@ setup(
     ],
     zip_safe=True,
     entry_points={"console_scripts": [f"{NAME}={NAME}.main:main"]},
+    package_data={NAME: ["github-workflow.json"]},
 )

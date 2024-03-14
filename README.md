@@ -100,6 +100,8 @@ The CSV file given to `-o` (or that will be written to the standard output by de
 - `previous_file_hash`: The name of the related workflow file in the dataset, before it has been touched
 - `change_type`: the type of change (A for added, M for modified, D for deleted). Note that a renamed file will be seen as a modification.
 
+The JSON schema found in `gigawork` is not made nor maintained by the authors of this repository. It was originally found on [https://json.schemastore.org/github-workflow.json](https://json.schemastore.org/github-workflow.json)
+
 ### Examples
 
 As an example, the following command extracts every workflow files from the repository `example_repository`, add the name `my-example-name` in the output. It also saves various information (such as commit SHA, author name, ...) in `output.csv` (with the headers as `--no-headers` is not specified). Each workflow file will be saved in the directory `workflows` (which is also the default save directory).

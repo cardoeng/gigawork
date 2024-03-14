@@ -1,5 +1,6 @@
 venv
-./workflows
+workflows/
+figures/
 *__pycache__/*
 *.csv*
 *.tar.*
