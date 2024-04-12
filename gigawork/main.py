@@ -58,9 +58,9 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 @click.option(
     "--auxiliary-output",
     "-ao",
-    help="The output CSV file where information related to the auxiliary files will be stored. "
+    help="If the information related to the auxiliary files will be stored. "
     "By default, the information will not be stored.",
-    type=click.Path(exists=False, file_okay=True, dir_okay=False, writable=True),
+    is_flag=True,
 )
 @click.option(
     "--repository-name",
@@ -132,7 +132,9 @@ def main(
             )
             logger.debug(exception)
 
-    extractor = WorkflowsExtractor(repo, workflows, save_auxiliaries=auxiliary_output is not None)
+    extractor = WorkflowsExtractor(
+        repo, workflows, save_auxiliaries=auxiliary_output is not None
+    )
     extractor.extract(ref, after)
     entries = extractor.get_entries()
 
@@ -154,20 +156,20 @@ def main(
                 repository_name,
             )
 
-    if auxiliary_output:
-        auxiliary_entries = extractor.get_auxiliary_entries()
-        if len(auxiliary_entries) > 0:
-            parent = os.path.dirname(auxiliary_output)
-            if parent != "":
-                os.makedirs(parent, exist_ok=True)
-            with open(auxiliary_output, "a", encoding="utf-8") as file:
-                utils.write_csv(
-                    auxiliary_entries,
-                    file,
-                    auxiliary_entries[0].__class__,
-                    not no_headers,
-                    repository_name,
-                )
+    # if auxiliary_output:
+    #     auxiliary_entries = extractor.get_auxiliary_entries()
+    #     if len(auxiliary_entries) > 0:
+    #         parent = os.path.dirname(auxiliary_output)
+    #         if parent != "":
+    #             os.makedirs(parent, exist_ok=True)
+    #         with open(auxiliary_output, "a", encoding="utf-8") as file:
+    #             utils.write_csv(
+    #                 auxiliary_entries,
+    #                 file,
+    #                 auxiliary_entries[0].__class__,
+    #                 not no_headers,
+    #                 repository_name,
+    #             )
 
     # cleanup
     if tmp_directory:

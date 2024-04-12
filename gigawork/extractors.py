@@ -126,7 +126,7 @@ class FilesExtractor(Extractor):
                 continue  # a commit might contains diffs for files we do not care about
             try:
                 self._process_diff(diff, commit, parent)
-            except ValueError as e:
+            except ValueError:
                 logger.error(
                     "Could not process diff %s (commit=%s)",
                     str(diff),
@@ -186,7 +186,7 @@ class FilesExtractor(Extractor):
             parent = commit.parents[0] if len(commit.parents) > 0 else None
         try:
             change_type = ChangeTypes(diff.change_type)
-        except ValueError as e:
+        except ValueError:
             logger.error(
                 "Could not process diff %s (commit=%s, change_type=%s)",
                 str(diff),
@@ -262,7 +262,7 @@ class FilesExtractor(Extractor):
             else:
                 s = data.decode()
             is_yaml, is_probable, is_workflow = is_valid_workflow(s)
-        except Exception as e:
+        except Exception:
             logger.warning(
                 "Could not decode or validate workflow for %s (commit=%s, change_type=%s)",
                 workflow_path,
@@ -295,6 +295,10 @@ class FilesExtractor(Extractor):
 
 
 class PathSeparatorFilesExtractor(FilesExtractor):
+    """Extract files and Entry from a repository.
+    Allow more control over the files that are saved
+    and the directory where they are saved."""
+
     def __init__(
         self,
         repository: git.Repo,
@@ -379,18 +383,21 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         repository: git.Repo,
         save_directory: PathLike,
         save_auxiliaries: bool = False,
-        auxiliary_save_directory: PathLike = None,
+        # auxiliary_save_directory: PathLike = None,
     ) -> None:
-        if auxiliary_save_directory is None:
-            auxiliary_save_directory = save_directory
-        separators = [
-            lambda x: not self._is_auxiliary(x),
-        ]
-        save_directories = [save_directory]
+        # if auxiliary_save_directory is None:
+        #     auxiliary_save_directory = save_directory
         if save_auxiliaries:
-            separators.append(lambda _: True)  # save everything
-            # that does not match the first separator
-            save_directories.append(auxiliary_save_directory)
+            separators = [lambda _: True]
+        else:
+            separators = [
+                lambda x: not self._is_auxiliary(x),
+            ]
+        save_directories = [save_directory]
+        # if save_auxiliaries:
+        #     separators.append(lambda _: True)  # save everything
+        #     # that does not match the first separator
+        #     save_directories.append(auxiliary_save_directory)
         PathSeparatorFilesExtractor.__init__(
             self,
             repository,
@@ -411,7 +418,7 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         p = entry.file_path if entry.file_path is not None else entry.previous_file_path
         return not (
             is_workflow_directory(p)
-            and (entry.valid_workflow or entry.probably_workflow)
+            # and (entry.valid_workflow or entry.probably_workflow)
         )
 
     def get_entries(self) -> List[Entry]:
@@ -421,14 +428,3 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
             List[Entry]: The entries.
         """
         return self.entries[0]
-
-    def get_auxiliary_entries(self) -> List[Entry]:
-        """Returns the auxiliary entries.
-
-        Returns:
-            List[Entry]: The auxiliary entries.
-        """
-        if len(self.entries) > 1:
-            return self.entries[1]
-        else:
-            return None
