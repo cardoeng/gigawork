@@ -33,7 +33,7 @@ class Entry(NamedTuple):
     previous_file_path: str
     file_hash: str
     previous_file_hash: str
-    change_type: str
+    git_change_type: str
     valid_yaml: bool
     probably_workflow: bool
     valid_workflow: bool
@@ -271,8 +271,8 @@ class FilesExtractor(Extractor):
                 exc_info=True,
             )
             is_yaml, is_probable, is_workflow = False, False, False
-        if change_type == ChangeTypes.RENAMED and _hash != _old_hash:
-            change_type = ChangeTypes.MODIFIED
+        # if change_type == ChangeTypes.RENAMED and _hash != _old_hash:
+        #     change_type = ChangeTypes.MODIFIED
         entry = Entry(
             commit.hexsha,
             commit.author.name,
