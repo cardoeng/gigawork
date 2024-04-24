@@ -70,7 +70,7 @@ def batch(directory, error_directory, output_directory, options):
             os.path.join(output_directory, os.path.basename(repo) + ".csv"),
             "--repository-name",
             os.path.basename(repo),
-            "--save-auxiliary",
+            "--save-auxiliaries",
         )
         args = (*default_args, *options, repo)
         sproc = subprocess.Popen(
