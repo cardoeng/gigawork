@@ -70,5 +70,11 @@ def is_valid_workflow(content) -> Tuple[bool, bool, bool]:
     return is_yaml, is_probable, is_workflow
 
 
-def is_workflow_directory(path):
+def is_workflow_path(path):
     return bool(WORKFLOW_REGEX.match(path))
+
+
+def is_workflow_directory(path):
+    if type(path) != str:
+        return False
+    return path.startswith(".github/workflows/")

@@ -67,13 +67,10 @@ def batch(directory, error_directory, output_directory, options):
         default_args = (
             "--no-headers",
             "--output",
-            os.path.join(output_directory, "output", os.path.basename(repo) + ".csv"),
+            os.path.join(output_directory, os.path.basename(repo) + ".csv"),
             "--repository-name",
             os.path.basename(repo),
-            "--auxiliary-output",
-            os.path.join(
-                output_directory, "auxiliary", os.path.basename(repo) + ".csv"
-            ),
+            "--save-auxiliary",
         )
         args = (*default_args, *options, repo)
         sproc = subprocess.Popen(

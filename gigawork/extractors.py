@@ -14,7 +14,11 @@ from typing import List, NamedTuple, Tuple
 import git
 
 from .change_types import ChangeTypes
-from .workflow_recognition import is_valid_workflow, is_workflow_directory
+from .workflow_recognition import (
+    is_valid_workflow,
+    is_workflow_directory,
+    is_workflow_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -305,6 +309,7 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         directory: PathLike,
         save_directories: List[PathLike],
         separators: List[callable],
+        save_filers: List[callable] = None,
     ) -> None:
         """
         Init
@@ -325,6 +330,7 @@ class PathSeparatorFilesExtractor(FilesExtractor):
             if sd is not None:
                 os.makedirs(sd, exist_ok=True)
         self.separators = separators
+        self.save_filters = save_filers
         self.entries = [[] for _ in range(len(self.separators))]
 
     @lru_cache(maxsize=10)
@@ -359,11 +365,17 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         if i is None:
             return
         sd = self.save_directories[i]
+        filt = self.save_filters[i] if self.save_filters is not None else None
         if sd is None:
             return
 
-        for (d, h) in [(data, entry.file_hash), (old_data, entry.previous_file_hash)]:
+        for (d, h, p) in [
+            (data, entry.file_hash, entry.file_path),
+            (old_data, entry.previous_file_hash, entry.previous_file_path),
+        ]:
             if d is None:
+                continue
+            if filt is not None and not filt(p):
                 continue
             path = os.path.join(sd, h)
             if not os.path.exists(path):
@@ -389,10 +401,12 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         #     auxiliary_save_directory = save_directory
         if save_auxiliaries:
             separators = [lambda _: True]
+            save_filters = None
         else:
             separators = [
                 lambda x: not self._is_auxiliary(x),
             ]
+            save_filters = [is_workflow_path]
         save_directories = [save_directory]
         # if save_auxiliaries:
         #     separators.append(lambda _: True)  # save everything
@@ -404,6 +418,7 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
             self.WORKFLOWS_DIRECTORY,
             save_directories,
             separators,
+            save_filters,
         )
 
     def _is_auxiliary(self, entry: Entry) -> bool:
@@ -417,9 +432,21 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         """
         p = entry.file_path if entry.file_path is not None else entry.previous_file_path
         return not (
-            is_workflow_directory(p)
+            is_workflow_path(p)
             # and (entry.valid_workflow or entry.probably_workflow)
         )
+
+    def _is_in_workflow_directory(self, entry: Entry) -> bool:
+        """Returns True if the path is in the workflows directory, False otherwise.
+
+        Args:
+            entry (Entry): The entry to check.
+
+        Returns:
+            bool: True if the path is in the workflows directory, False otherwise.
+        """
+        p = entry.file_path if entry.file_path is not None else entry.previous_file_path
+        return is_workflow_directory(p)
 
     def get_entries(self) -> List[Entry]:
         """Returns the entries.
