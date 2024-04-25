@@ -1,4 +1,5 @@
 import csv
+from dataclasses import fields
 from io import TextIOWrapper
 from typing import Iterable
 

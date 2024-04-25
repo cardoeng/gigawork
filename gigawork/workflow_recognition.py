@@ -71,6 +71,8 @@ def is_valid_workflow(content) -> Tuple[bool, bool, bool]:
 
 
 def is_workflow_path(path):
+    if path is None:
+        return False
     return bool(WORKFLOW_REGEX.match(path))
 
 

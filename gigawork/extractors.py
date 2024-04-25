@@ -168,8 +168,9 @@ class FilesExtractor(Extractor):
             change_type = ChangeTypes.ADDED
         return ((blob, old_blob, commit, path, previous_path, change_type),)
 
-    def _save_entry(self, entry: Entry):
+    def _save_entry(self, entry: Entry, data: bytes, old_data: bytes):
         self.entries.append(entry)
+        self._save_content(data, old_data, entry)
 
     def _process_diff(
         self,
@@ -200,7 +201,7 @@ class FilesExtractor(Extractor):
             return  # we do not care about this diff
 
         for params in self._get_blob_parameters(diff, change_type, commit):
-            self._save_entry(self._process_blob(*params))
+            self._save_entry(*self._process_blob(*params))
 
     def _get_blob_content(self, blob: git.Blob) -> Tuple[str, str]:
         """
@@ -294,8 +295,8 @@ class FilesExtractor(Extractor):
             is_probable,
             is_workflow,
         )
-        self._save_content(data, old_data, entry)
-        return entry
+        # self._save_content(data, old_data, entry)
+        return entry, data, old_data
 
 
 class PathSeparatorFilesExtractor(FilesExtractor):
@@ -349,7 +350,7 @@ class PathSeparatorFilesExtractor(FilesExtractor):
                 return i
         return None
 
-    def _save_entry(self, entry: Entry):
+    def _save_entry(self, entry: Entry, data: bytes, old_data: bytes):
         """
         Saves the entry based on the separator index.
 
@@ -358,24 +359,27 @@ class PathSeparatorFilesExtractor(FilesExtractor):
         """
         index = self._get_save_index(entry)
         if index is not None:
-            self.entries[index].append(entry)
+            if self.save_filters is not None:
+                filt = self.save_filters[index]
+                if filt is not None:
+                    entry = filt(entry)
+            if entry is not None:
+                self.entries[index].append(entry)
+                self._save_content(data, old_data, entry)
 
     def _save_content(self, data: bytes, old_data: bytes, entry: Entry) -> str:
         i = self._get_save_index(entry)
         if i is None:
             return
         sd = self.save_directories[i]
-        filt = self.save_filters[i] if self.save_filters is not None else None
         if sd is None:
             return
 
-        for (d, h, p) in [
-            (data, entry.file_hash, entry.file_path),
-            (old_data, entry.previous_file_hash, entry.previous_file_path),
+        for (d, h) in [
+            (data, entry.file_hash),
+            (old_data, entry.previous_file_hash),
         ]:
-            if d is None:
-                continue
-            if filt is not None and not filt(p):
+            if d is None or h is None:
                 continue
             path = os.path.join(sd, h)
             if not os.path.exists(path):
@@ -395,23 +399,16 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         repository: git.Repo,
         save_directory: PathLike,
         save_auxiliaries: bool = False,
-        # auxiliary_save_directory: PathLike = None,
     ) -> None:
-        # if auxiliary_save_directory is None:
-        #     auxiliary_save_directory = save_directory
         if save_auxiliaries:
             separators = [lambda _: True]
-            save_filters = None
+            save_filters = [self._filter_in_directory]
         else:
             separators = [
-                lambda x: not self._is_auxiliary(x),
+                lambda x: not self._is_workflow_path(x),
             ]
-            save_filters = [is_workflow_path]
+            save_filters = [self._filter_workflow]
         save_directories = [save_directory]
-        # if save_auxiliaries:
-        #     separators.append(lambda _: True)  # save everything
-        #     # that does not match the first separator
-        #     save_directories.append(auxiliary_save_directory)
         PathSeparatorFilesExtractor.__init__(
             self,
             repository,
@@ -421,7 +418,7 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
             save_filters,
         )
 
-    def _is_auxiliary(self, entry: Entry) -> bool:
+    def _is_workflow_path(self, entry: Entry) -> bool:
         """Returns True if the path is an auxiliary file, False otherwise.
 
         Args:
@@ -430,23 +427,45 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         Returns:
             bool: True if the path is an auxiliary file, False otherwise.
         """
-        p = entry.file_path if entry.file_path is not None else entry.previous_file_path
         return not (
-            is_workflow_path(p)
-            # and (entry.valid_workflow or entry.probably_workflow)
+            is_workflow_path(entry.file_path)
+            or is_workflow_path(entry.previous_file_path)
         )
 
-    def _is_in_workflow_directory(self, entry: Entry) -> bool:
-        """Returns True if the path is in the workflows directory, False otherwise.
+    def _filter_workflow(self, entry: Entry) -> Entry:
+        """Modify the data to remove the hash of files that are not workflows.
 
         Args:
-            entry (Entry): The entry to check.
+            entry (Entry): The entry to filter.
 
         Returns:
-            bool: True if the path is in the workflows directory, False otherwise.
+            Entry: A modified version of the entry.
         """
-        p = entry.file_path if entry.file_path is not None else entry.previous_file_path
-        return is_workflow_directory(p)
+        if not is_workflow_path(entry.file_path):
+            # return new entry where file_hash is None
+            entry = entry._replace(file_hash=None)
+        if not is_workflow_path(entry.previous_file_path):
+            # return new entry where previous_file_hash is None
+            entry = entry._replace(previous_file_hash=None)
+        return entry
+
+    def _filter_in_directory(self, entry: Entry) -> Entry:
+        """Modify the data to remove the hash of files that are not
+        in the good directory.
+
+        Args:
+            entry (Entry): The entry to filter.
+
+        Returns:
+            Entry: A modified version of the entry.
+        """
+        if not is_workflow_directory(entry.file_path):
+            # return new entry where file_hash is None
+            entry = entry._replace(file_hash=None)
+        if not is_workflow_directory(entry.previous_file_path):
+            # return new entry where previous_file_hash is None
+            entry = entry._replace(previous_file_hash=None)
+        return entry
 
     def get_entries(self) -> List[Entry]:
         """Returns the entries.
