@@ -1,4 +1,5 @@
 import csv
+import json
 from dataclasses import fields
 from io import TextIOWrapper
 from typing import Iterable
@@ -45,6 +46,22 @@ def write_csv(
             h.insert(0, "repository")
         writer.writerow(h)
     writer.writerows(entries)
+    
+def write_json(entries: Iterable, file: TextIOWrapper, repository_name: str = None):
+    """Write the given entries to the given file.
+
+    Args:
+        entries (List[Entry]): The entries to write.
+        file (TextIOWrapper): The file to write to.
+        repository_name (str, optional): The name of the repository to add to the entries.
+        Defaults to None.
+    """
+    # map each entry to a dictionary
+    entries = map(lambda e: e._asdict(), entries)
+    if repository_name:
+        entries = map(lambda e: {"repository": repository_name, **e}, entries)
+    # write the entries to the file
+    json.dump(list(entries), file, indent=4)
 
 
 def get_yaml_object(sort_keys=False) -> YAML:

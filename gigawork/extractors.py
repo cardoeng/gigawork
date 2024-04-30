@@ -124,7 +124,8 @@ class FilesExtractor(Extractor):
         # we only compare with the first parent
         # as we iter_commits with first-parent=True
         parent = commit.parents[0] if len(commit.parents) > 0 else None
-        diffs = parent.diff(commit) if parent else commit.diff(git.NULL_TREE)
+        diffs = parent.diff(commit) \
+            if parent else commit.diff(git.NULL_TREE, R=True)
         for diff in diffs:
             if not self._should_process_diff(diff):
                 continue  # a commit might contains diffs for files we do not care about
@@ -137,7 +138,7 @@ class FilesExtractor(Extractor):
                     commit,
                     exc_info=True,
                 )
-                sys.exit(1)
+                raise
 
     def _get_blob_parameters(
         self, diff: git.Diff, change_type: ChangeTypes, commit
@@ -164,9 +165,8 @@ class FilesExtractor(Extractor):
                 diff.b_path,
                 diff.a_path,
             )
-        if len(commit.parents) == 0:
-            change_type = ChangeTypes.ADDED
-        return ((blob, old_blob, commit, path, previous_path, change_type),)
+        print(commit, repr(diff.a_path), repr(diff.b_path))
+        return (blob, old_blob, commit, path, previous_path, change_type)
 
     def _save_entry(self, entry: Entry, data: bytes, old_data: bytes):
         self.entries.append(entry)
@@ -200,8 +200,8 @@ class FilesExtractor(Extractor):
             )
             return  # we do not care about this diff
 
-        for params in self._get_blob_parameters(diff, change_type, commit):
-            self._save_entry(*self._process_blob(*params))
+        params = self._get_blob_parameters(diff, change_type, commit)
+        self._save_entry(*self._process_blob(*params))
 
     def _get_blob_content(self, blob: git.Blob) -> Tuple[str, str]:
         """
@@ -365,7 +365,8 @@ class PathSeparatorFilesExtractor(FilesExtractor):
                     entry = filt(entry)
             if entry is not None:
                 self.entries[index].append(entry)
-                self._save_content(data, old_data, entry)
+                if entry.file_hash is not None or entry.previous_file_hash is not None:
+                    self._save_content(data, old_data, entry)
 
     def _save_content(self, data: bytes, old_data: bytes, entry: Entry) -> str:
         i = self._get_save_index(entry)
@@ -401,7 +402,7 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         save_auxiliaries: bool = False,
     ) -> None:
         if save_auxiliaries:
-            separators = [lambda _: True]
+            separators = [self._is_workflow_directory]
             save_filters = [self._filter_in_directory]
         else:
             separators = [
@@ -430,6 +431,20 @@ class WorkflowsExtractor(PathSeparatorFilesExtractor):
         return not (
             is_workflow_path(entry.file_path)
             or is_workflow_path(entry.previous_file_path)
+        )
+        
+    def _is_workflow_directory(self, entry: Entry) -> bool:
+        """Returns True if the path is an auxiliary file, False otherwise.
+
+        Args:
+            entry (Entry): The entry to check.
+
+        Returns:
+            bool: True if the path is an auxiliary file, False otherwise.
+        """
+        return (
+            is_workflow_directory(entry.file_path)
+            or is_workflow_directory(entry.previous_file_path)
         )
 
     def _filter_workflow(self, entry: Entry) -> Entry:
