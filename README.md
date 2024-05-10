@@ -73,10 +73,9 @@ Options:
                                   related to the dataset will be stored. By
                                   default, the information will written to the
                                   standard output.
-  -ao, --auxiliary-output FILE    The output CSV file where information
-                                  related to the auxiliary files will be
-                                  stored. By default, the information will not
-                                  be stored.
+  -sa, --save-auxiliaries         If the information related to the auxiliary
+                                  files will be stored. By default, the
+                                  information will not be stored.
   -n, --repository-name TEXT      Add a column `repository` to the output file
                                   where each value will be equal to the
                                   provided parameter.
@@ -102,8 +101,6 @@ The CSV file given to `-o` (or that will be written to the standard output by de
 - `valid_yaml`: a boolean indicating if the file is a valid YAML file.
 - `probably_workflow`: a boolean representing if the file contains the YAML key `on` and `jobs`. (Note that a file can be an invalid YAML file while having this value set to true).
 - `valid_workflow`: a boolean indicating if the file respect the syntax of GitHub Actions workflow. A freely available JSON Schema was used in this goal. This schema is neither made nor maintained by the authors of this repository. It was originally found on [https://json.schemastore.org/github-workflow.json](https://json.schemastore.org/github-workflow.json)
-
-`-ao` will create a similar file containing every auxiliary files (i.e., files in a subdirectory or not having at least `probably_workflow` set to true).
 
 ### Examples
 
