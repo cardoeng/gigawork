@@ -132,7 +132,6 @@ def main(
             )
             logger.debug(exception)
 
-    print(save_auxiliaries, file=sys.stderr)
     extractor = WorkflowsExtractor(repo, workflows, save_auxiliaries=save_auxiliaries)
     extractor.extract(ref, after)
     entries = extractor.get_entries()
