@@ -1,3 +1,4 @@
+[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/cardoeng/gigawork/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/cardoeng/gigawork)
 # gigawork
 
 An automated tool for extracting GitHub Actions' workflows from Git repositories written in Python.
