@@ -11,7 +11,7 @@ with open(
 
 setup(
     name=NAME,
-    version="1.3.0",
+    version="1.4.0",
     license="LGPLv3",
     author="Guillaume Cardoen",
     url="https://github.com/cardoeng/gigawork",
@@ -35,12 +35,12 @@ setup(
     ],
     keywords="gha workflows dataset tool",
     packages=find_packages(include=[NAME]),
-    python_requires="~= 3.8",
+    python_requires=">= 3.8",
     install_requires=[
         "click ~= 8.1.7",
-        "GitPython ~= 3.1.41",
+        "GitPython @ git+https://github.com/gitpython-developers/GitPython.git@b71ce68632154916dee2e7cc96bac4b25a596a3a",
         "jsonschema ~= 4.21.0",
-        "ruamel.yaml ~= 0.17.40",
+        "ruamel.yaml ~= 0.18.6",
     ],
     zip_safe=True,
     entry_points={"console_scripts": [f"{NAME}={NAME}.main:main"]},
