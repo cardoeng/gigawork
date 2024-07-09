@@ -11,7 +11,7 @@ with open(
 
 setup(
     name=NAME,
-    version="1.4.0",
+    version="1.4.1",
     license="LGPLv3",
     author="Guillaume Cardoen",
     url="https://github.com/cardoeng/gigawork",
@@ -38,7 +38,7 @@ setup(
     python_requires=">= 3.8",
     install_requires=[
         "click ~= 8.1.7",
-        "GitPython @ git+https://github.com/gitpython-developers/GitPython.git@b71ce68632154916dee2e7cc96bac4b25a596a3a",
+        "GitPython ~= 3.1.43",
         "jsonschema ~= 4.21.0",
         "ruamel.yaml ~= 0.18.6",
     ],

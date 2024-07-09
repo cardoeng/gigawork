@@ -1,6 +1,6 @@
 click==8.1.7
 gitdb==4.0.10
-GitPython @ git+https://github.com/gitpython-developers/GitPython.git@b71ce68632154916dee2e7cc96bac4b25a596a3a
+GitPython==3.1.43
 smmap==5.0.1
 jsonschema==4.21.1
 ruamel.yaml==0.18.6

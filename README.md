@@ -14,6 +14,8 @@ The easiest way to install `gigawork` is to install from Pypi
 pip install gigawork
 ```
 
+*Note: a recently fixed issue in GitPython (see https://github.com/gitpython-developers/GitPython/pull/1933) might affect the results of gigawork. As Pypi does not seem to allow git dependencies, you may need to update the dependency yourself via `pip install git+https://github.com/gitpython-developers/GitPython.git`.*
+
 Another easy way to install `gigawork` is via `pip` from this GitHub repository
 ```
 pip install git+https://github.com/cardoeng/gigawork
