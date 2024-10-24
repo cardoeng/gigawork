@@ -124,7 +124,7 @@ class FilesExtractor(Extractor):
         # we only compare with the first parent
         # as we iter_commits with first-parent=True
         parent = commit.parents[0] if len(commit.parents) > 0 else None
-        diffs = parent.diff(commit) if parent else commit.diff(git.NULL_TREE, R=True)
+        diffs = parent.diff(commit) if parent else commit.diff(git.NULL_TREE)
         for diff in diffs:
             if not self._should_process_diff(diff):
                 continue  # a commit might contains diffs for files we do not care about

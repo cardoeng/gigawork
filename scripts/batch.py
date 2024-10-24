@@ -2,9 +2,14 @@ import logging
 import os
 import subprocess
 import click
+import pandas as pd
+from tqdm import tqdm
+import gzip
 
+HEADERS = "repository,commit_hash,author_name,author_email,committer_name,committer_email,committed_date,authored_date,file_path,previous_file_path,file_hash,previous_file_hash,git_change_type,valid_yaml,probably_workflow,valid_workflow"
 
-logging.basicConfig(level=logging.INFO)
+# log into a file
+logging.basicConfig(level=logging.INFO, filename="batch.log")
 logger = logging.getLogger(__name__)
 
 
@@ -30,8 +35,15 @@ logger = logging.getLogger(__name__)
     default="outputs",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True),
 )
+@click.option(
+    "--repositories-list",
+    "-r",
+    help="A file containing the list of repositories to process.",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True),
+    required=True,
+)
 @click.argument("options", nargs=-1, type=click.UNPROCESSED)
-def batch(directory, error_directory, output_directory, options):
+def batch(directory, error_directory, output_directory, repositories_list, options):
     """Extract the GitHub Actions workflows from multiple Git repos.
     This command assumes every Git repositories are under a folder.
     This command is equivalent to launching multiple times the "single" command
@@ -45,22 +57,17 @@ def batch(directory, error_directory, output_directory, options):
     for folder in (error_directory, output_directory):
         if folder is not None:
             os.makedirs(folder, exist_ok=True)
-    to_process = os.listdir(directory)
-    to_process = [os.path.join(directory, f) for f in to_process]
+    df = pd.read_csv(repositories_list)
+    to_process = df["name"].tolist()
+    to_process = (
+        os.path.join(directory, repo.replace("/", ":")) for repo in to_process
+    )
     # there might be memory leaks here and there
     # starting a new process for each repository might be better
     # in the long run
     # we could even multiprocess it (but might be problematic with git?)
     errors_count = 0
-    for i, repo in enumerate(to_process):
-        logger.info(
-            "(%d/%d (%.2f%%) | %d error(s)) Processing repository '%s'",
-            i,
-            len(to_process),
-            float(i) / len(to_process) * 100,
-            errors_count,
-            repo,
-        )
+    for repo in tqdm(to_process, total=len(df), desc="Processing repositories"):
         if not os.path.isdir(repo):
             logger.warning("'%s' is not a directory. Skipping...", repo)
             continue
@@ -91,6 +98,13 @@ def batch(directory, error_directory, output_directory, options):
                 with open(base + ".err.txt", "w", encoding="utf-8") as file:
                     file.write(err.decode("utf-8"))
             continue
+    print(f"There was {errors_count} errors (including not found repositories)")
+    outfile = os.path.join(output_directory, "merged.csv.gz")
+    with gzip.open(outfile, "wt", encoding="utf-8") as file:
+        file.write(HEADERS + "\n")
+        for f in tqdm(os.listdir(output_directory), desc="Merging CSV files"):
+            with open(os.path.join(output_directory, f), "r", encoding="utf-8") as f:
+                file.write(f.read())
 
 
 if __name__ == "__main__":
