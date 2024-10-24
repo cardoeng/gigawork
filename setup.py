@@ -11,7 +11,7 @@ with open(
 
 setup(
     name=NAME,
-    version="1.4.1",
+    version="1.4.2",
     license="LGPLv3",
     author="Guillaume Cardoen",
     url="https://github.com/cardoeng/gigawork",
